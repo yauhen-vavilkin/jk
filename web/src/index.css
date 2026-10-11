@@ -1,0 +1,192 @@
+@import "./tokens.css";
+@import "tailwindcss";
+
+@config "../tailwind.config.ts";
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/fonts/SourceSans3-variable.woff2") format("woff2-variations");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-variable.woff2") format("woff2-variations");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--jk-bg);
+    color: var(--jk-text);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--jk-info);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    color: var(--jk-link-hover);
+  }
+
+  /* Every card and row is reachable from the keyboard, and says so. */
+  :focus-visible {
+    outline: 2px solid var(--jk-accent);
+    outline-offset: 2px;
+  }
+
+  /* Tailwind's preflight already gives every element `border: 0 solid`, so
+     nothing here may set `border`: a shorthand would reset the style to `none`
+     and a `border` utility, which only sets a width, would then draw nothing. */
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
+    background: none;
+  }
+
+  /* Mono text takes the font's own line height, as the `font:` shorthand sets
+     it. A class selector is needed to beat preflight's `line-height: inherit`
+     on a button or an input; `@layer utilities` still comes after this, so a
+     `leading-*` utility wins wherever the design asks for a ratio. */
+  .font-mono {
+    line-height: normal;
+  }
+
+  input::placeholder {
+    color: var(--jk-dim);
+  }
+}
+
+@layer utilities {
+  /* Why a button is off, shown under it when Tab reaches it (a pointer gets the title). */
+  .jk-why {
+    position: relative;
+  }
+  .jk-why:focus-visible::after {
+    content: attr(data-why);
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    padding: 3px 8px;
+    border: 1px solid var(--jk-hairline);
+    border-radius: 4px;
+    background: var(--jk-surface-2);
+    color: var(--jk-text);
+    font-size: 13px;
+    font-weight: 400;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* The only looping animation on the page. */
+  .jk-pulse {
+    animation: jk-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes jk-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+
+  .jk-modal-in {
+    animation: jk-modal-in 160ms ease-out;
+  }
+
+  @keyframes jk-modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .jk-modal-out {
+    animation: jk-modal-out 120ms ease-in forwards;
+  }
+
+  @keyframes jk-modal-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  .jk-backdrop-out {
+    animation: jk-backdrop-out 120ms ease-in forwards;
+  }
+
+  @keyframes jk-backdrop-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  .jk-card-in {
+    animation: jk-card-in 160ms ease-out;
+  }
+
+  @keyframes jk-card-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .jk-backdrop-in {
+    animation: jk-fade-in 160ms ease-out;
+  }
+
+  @keyframes jk-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

@@ -1,0 +1,17 @@
+.env
+/.agents/
+/.claude/
+skills-lock.json
+__pycache__/
+.DS_Store
+
+# Local run state and agent scratch, never part of the repository
+/.jk/
+/.opencode/
+/.tasks/
+
+# Frontend build output and installed packages
+/web/node_modules/
+/web/dist/
+/web/src/tokens.css
+/web/tsconfig.tsbuildinfo

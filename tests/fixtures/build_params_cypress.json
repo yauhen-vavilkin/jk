@@ -1,0 +1,17 @@
+{
+  "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+  "number": 10050,
+  "queueId": 183760,
+  "building": false,
+  "result": "UNSTABLE",
+  "actions": [
+    {"_class": "hudson.model.ParametersAction", "parameters": [
+      {"_class": "hudson.model.StringParameterValue", "name": "CYPRESS_BRANCH", "value": "master"},
+      {"_class": "hudson.model.StringParameterValue", "name": "TENANT_ID", "value": "consortium"},
+      {"_class": "hudson.model.StringParameterValue", "name": "TESTRAIL_RUN_ID", "value": ""},
+      {"_class": "hudson.model.PasswordParameterValue", "name": "ADMIN_PASSWORD"},
+      {"_class": "hudson.model.BooleanParameterValue", "name": "PREPARE", "value": false},
+      {"_class": "hudson.model.BooleanParameterValue", "name": "RUN_SANITY_CHECK", "value": true}
+    ]}
+  ]
+}

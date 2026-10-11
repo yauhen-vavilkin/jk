@@ -1,0 +1,17 @@
+# `docker compose up -d`, then open http://127.0.0.1:8765
+services:
+  jk:
+    build: .
+    image: jk-panel
+    pull_policy: build
+    container_name: jk-panel
+    ports:
+      - "127.0.0.1:8765:8765"
+    env_file: .env
+    volumes:
+      - jk-data:/app/.jk
+
+volumes:
+  jk-data:
+    # A fixed name, so `docker run -v jk-data:...` and Compose share one history.
+    name: jk-data

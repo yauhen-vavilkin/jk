@@ -1,0 +1,16 @@
+# Allowlist: only what the image is built from enters the build context.
+# .env (the token), .jk/ (the run database) and every local build output stay
+# out, whatever else is added to the checkout later.
+*
+!pyproject.toml
+!LICENSE
+!uv.lock
+!src/
+!design/tokens.json
+!web/
+web/node_modules/
+web/dist/
+web/src/tokens.css
+web/tsconfig.tsbuildinfo
+**/__pycache__/
+**/.DS_Store

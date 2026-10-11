@@ -1,0 +1,14 @@
+{
+  "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+  "builds": [
+    {"number": 9929, "queueId": 183759, "building": true, "result": null,
+     "timestamp": 1787849729605, "duration": 0,
+     "url": "https://jenkins.invalid/job/folioRancher/job/manageNamespace/job/createNamespaceFromBranch/9929/"},
+    {"number": 9928, "queueId": 183738, "building": false, "result": "SUCCESS",
+     "timestamp": 1787844779464, "duration": 2131152,
+     "url": "https://jenkins.invalid/job/folioRancher/job/manageNamespace/job/createNamespaceFromBranch/9928/"},
+    {"number": 9927, "queueId": 183501, "building": false, "result": "UNSTABLE",
+     "timestamp": 1787799001000, "duration": 2400000,
+     "url": "https://jenkins.invalid/job/folioRancher/job/manageNamespace/job/createNamespaceFromBranch/9927/"}
+  ]
+}

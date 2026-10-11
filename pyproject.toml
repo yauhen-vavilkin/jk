@@ -1,0 +1,49 @@
+[project]
+name = "jk"
+version = "0.1.0"
+description = "Local web panel for saved Jenkins jobs and flows"
+authors = [{ name = "Yauhen Vavilkin" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "sse-starlette>=2.1",
+]
+
+[project.scripts]
+jk = "jk.__main__:main"
+
+[dependency-groups]
+dev = [
+    "hatchling",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruamel.yaml>=0.19.1",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["contract: runs read-only GETs against the real Jenkins controller"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# *.md is excluded because ruff 0.16 formats Python blocks inside Markdown, which
+# would rewrite the code samples the documents quote verbatim.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

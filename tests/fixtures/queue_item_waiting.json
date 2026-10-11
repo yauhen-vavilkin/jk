@@ -1,0 +1,12 @@
+{
+  "_class": "hudson.model.Queue$WaitingItem",
+  "id": 183759,
+  "blocked": false,
+  "buildable": true,
+  "stuck": false,
+  "cancelled": false,
+  "inQueueSince": 1787849720000,
+  "why": "In the quiet period. Expires in 4.5 sec",
+  "task": {"name": "createNamespaceFromBranch"},
+  "executable": null
+}

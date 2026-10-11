@@ -1,0 +1,11 @@
+{
+  "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+  "building": false,
+  "duration": 2131152,
+  "estimatedDuration": 2619692,
+  "number": 9928,
+  "queueId": 183738,
+  "result": "SUCCESS",
+  "timestamp": 1787844779464,
+  "url": "https://jenkins.invalid/job/folioRancher/job/manageNamespace/job/createNamespaceFromBranch/9928/"
+}
