@@ -2,7 +2,7 @@
 
 `spec.md` defines intended behavior. The entries below were rechecked against
 current code and offline fixtures on 2026-10-11, after the frontend dependency
-updates. All eight items are fixed. Automated regressions pass the repository gate;
+updates. All nine items are fixed. Automated regressions pass the repository gate;
 visual layout also has the viewport checks described below.
 
 ## Closed defects
@@ -102,6 +102,17 @@ while it is edited.
 
 Evidence: `PresetEditor.test.tsx` focuses the field, types, and clears it
 again, checking focus after each change.
+
+### BUG-029 — The running dot sat below the middle of the word RUNNING
+
+Reproduction: run a flow and look at a running step card. The pulsing dot
+before `RUNNING` sat about 2px below the word's middle: the icon was shifted
+below the text baseline for lowercase words, but the status words are
+capitals, whose middle is higher. The icon and the word now center on each
+other, like every other icon-and-word pair on the card.
+
+Evidence: a browser measurement on the offline fixture board compares the dot's
+center with the word's; they differ by less than half a pixel.
 
 ## Remaining validation limit
 

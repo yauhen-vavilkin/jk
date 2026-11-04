@@ -86,15 +86,15 @@ export function StepCardBody({
             takes a line of its own, still on the right. */}
         <span className="ml-auto flex items-center">
           {status && (
-            <span className={status.wordClass}>
+            // The icon and the word center on each other; the status words are
+            // capitals, so a baseline-shifted icon hangs below their middle.
+            <span className={`inline-flex items-center gap-2 ${status.wordClass}`}>
               {status.glyph && (
-                <>
-                  <StatusIcon
-                    name={status.glyph}
-                    size={14}
-                    className={`${status.glyphClass} ${status.pulse ? "jk-pulse" : ""}`}
-                  />{" "}
-                </>
+                <StatusIcon
+                  name={status.glyph}
+                  size={14}
+                  className={`${status.glyphClass} ${status.pulse ? "jk-pulse" : ""}`}
+                />
               )}
               {status.word}
             </span>
