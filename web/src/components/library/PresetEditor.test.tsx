@@ -231,3 +231,27 @@ describe("a choice parameter's value list", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
+
+describe("a fixed value field", () => {
+  it("keeps the cursor through the first character typed, and through clearing back to empty", () => {
+    const withNamespace = preset({
+      params: { NAMESPACE: { mode: "fixed", value: "", last_value: null } },
+      definitions: [{ name: "NAMESPACE", type: "StringParameterDefinition", default: null, choices: null }],
+    });
+    render(editor({ preset: withNamespace, definitions: withNamespace.definitions }));
+
+    const field = screen.getByRole("textbox", { name: "Value for NAMESPACE" });
+    // fireEvent.change never moves focus, so the field is focused the way a
+    // click would be; each assertion then proves the cursor stayed in the
+    // field across the re-render.
+    field.focus();
+    fireEvent.change(field, { target: { value: "d" } });
+    expect(field).toHaveFocus();
+
+    fireEvent.change(field, { target: { value: "dev" } });
+    expect(field).toHaveFocus();
+
+    fireEvent.change(field, { target: { value: "" } });
+    expect(field).toHaveFocus();
+  });
+});

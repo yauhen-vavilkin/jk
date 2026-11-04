@@ -2,7 +2,7 @@
 
 `spec.md` defines intended behavior. The entries below were rechecked against
 current code and offline fixtures on 2026-10-11, after the frontend dependency
-updates. All seven items are fixed. Automated regressions pass the repository gate;
+updates. All eight items are fixed. Automated regressions pass the repository gate;
 visual layout also has the viewport checks described below.
 
 ## Closed defects
@@ -89,6 +89,19 @@ Evidence: `test_reconcile.py` covers missing/explicit empty values, conflicts,
 hidden passwords, extra fields and the positive-match threshold.
 `test_web_attention.py` verifies the displayed evidence. Candidate discovery
 still never links automatically or resends a step.
+
+### BUG-028 — The first character typed into an empty fixed field lost the cursor
+
+Reproduction: open a saved job, set a parameter with no last value and no
+Jenkins default (NAMESPACE, say) to `fixed`, and type. The "sent empty" note
+under the field existed only while the value was empty, so the first
+character removed its wrapper and React re-created the input, dropping the
+cursor; clearing the field back to empty did the same in reverse. The wrapper
+now stays whether or not a note is shown, so the field is never re-created
+while it is edited.
+
+Evidence: `PresetEditor.test.tsx` focuses the field, types, and clears it
+again, checking focus after each change.
 
 ## Remaining validation limit
 

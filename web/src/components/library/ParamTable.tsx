@@ -164,12 +164,13 @@ function YourValue({
     />
   );
 
+  // The wrapper stays whether or not a note is shown, so the note appearing
+  // or disappearing never swaps the field out from under the cursor.
   const note = row.isPassword ? "password · sent as written" : row.value === "" ? "sent empty" : null;
-  if (!note) return field;
   return (
     <span className="flex flex-col">
       {field}
-      <span className="pt-0.5 text-[13px] text-dim">{note}</span>
+      {note !== null && <span className="pt-0.5 text-[13px] text-dim">{note}</span>}
     </span>
   );
 }
