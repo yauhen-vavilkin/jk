@@ -161,7 +161,7 @@ export interface Flow {
   result: Result | null;
   /** The saved flow this flow is kept as, if it is. */
   saved_flow_id: string | null;
-  /** Kept at the top of the board, and on it, until it is taken off. */
+  /** Kept at the top of the board. */
   pinned: boolean;
   /** The user is still building it: it can be changed, but not run. Only a draft is. */
   editing: boolean;

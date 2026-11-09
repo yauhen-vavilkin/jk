@@ -123,7 +123,7 @@ in the run database, and never appears in a job parameter.
 | Monitoring | Poll Jenkins REST; automatically resume after restart |
 | Flows | Sequential steps with a condition each; flows run beside each other |
 | Parameter values | Literal, fixed in the saved job or typed for the run; no secret store and no environment references |
-| History retention | Nothing is pruned; an ended flow leaves the Board after 12 hours unless pinned |
+| History retention | Nothing is pruned; an ended flow stays on the Board until the user clears it or runs it again |
 
 ## 5. Architecture
 
@@ -280,8 +280,8 @@ that only adds tables keeps the run history:
   destructive step not yet sent is held again.
 
 History remains available after restart. Nothing is pruned: every flow that has
-started stays in History. A flow that has ended leaves the Board 12 hours after
-it finished or failed, unless it is pinned, and stays in History. A draft that
+started stays in History. A flow that has ended stays on the Board until the
+user clears it or runs it again, and stays in History. A draft that
 never ran is not history, and removing it deletes it. JK provides no long-term
 archival, analytics, synchronization, or reporting.
 

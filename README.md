@@ -142,9 +142,8 @@ The panel has three pages:
   Jenkins' guess, from how long each job last took.
 
   Two flows on the board never share a name, and neither do two saved flows. A
-  run that ended still counts while it is shown; once **Remove** clears it off --
-  or JK does, by itself, 12 hours after it finished or failed, unless it is
-  pinned -- its name is free again. Where you type the name, a taken one is refused; where
+  run that ended still counts while it is shown, however long it stays; once
+  **Remove** clears it off, its name is free again. Where you type the name, a taken one is refused; where
   the panel names a flow itself -- a duplicate, or a saved flow dropped in a
   second time -- it takes `Name copy`, then `Name copy 2`.
 - **Library** -- every parameterised job on the controller, in its Jenkins

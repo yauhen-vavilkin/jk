@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 import pytest
@@ -11,7 +10,6 @@ from jk.store.flows import FlowStore
 from jk.store.jenkins_jobs import JenkinsJobStore
 from jk.store.presets import PresetStore
 from jk.store.records import (
-    KEEP_FINISHED_SECONDS,
     Condition,
     DefinitionSnapshot,
     Drift,
@@ -229,26 +227,18 @@ def test_a_flow_that_starts_is_no_longer_being_edited(store: RunStore) -> None:
     assert flows.get(flow_id)[1].editing is False
 
 
-def test_a_run_that_ended_long_ago_leaves_the_board(store: RunStore) -> None:
+def test_a_run_that_ended_stays_on_the_board_until_it_is_cleared(store: RunStore) -> None:
     flows = FlowStore(store)
-    stale = flows.create(name="yesterday")
-    flows.set_status(stale, FlowStatus.FINISHED, finished=True)
-    pinned = flows.create(name="kept")
-    flows.set_status(pinned, FlowStatus.FINISHED, finished=True)
-    flows.set_pinned(pinned, True)
-    fresh = flows.create(name="just now")
-    flows.set_status(fresh, FlowStatus.FINISHED, finished=True)
-    long_ago = int(time.time()) - KEEP_FINISHED_SECONDS - 60
-    store.connection.execute(
-        "UPDATE flow_meta SET finished_at = ? WHERE run_id IN (?, ?)", (long_ago, stale, pinned)
-    )
-    store.connection.commit()
+    ended = flows.create(name="long since over")
+    flows.set_status(ended, FlowStatus.FINISHED, finished=True)
 
-    assert flows.stale_finished() == [stale]
-    flows.set_cleared(stale, True)
+    # Nothing takes an ended run off the board but the user.
+    assert flows.list() == [ended]
+    assert flows.board_names() == ["long since over"]
+    flows.set_cleared(ended, True)
 
     # The name goes with the card: what the board no longer shows holds nothing.
-    assert sorted(flows.board_names()) == ["just now", "kept"]
+    assert flows.board_names() == []
 
 
 def test_board_names_are_the_ones_the_user_can_see(store: RunStore) -> None:

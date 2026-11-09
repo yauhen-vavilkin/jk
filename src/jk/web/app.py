@@ -38,7 +38,6 @@ def create_app(
             await services.supervisor.start()
             tasks.append(asyncio.create_task(_first_look(services)))
             tasks.append(asyncio.create_task(services.drift.run_forever(services.publish_preset)))
-            tasks.append(asyncio.create_task(_tidy_board(services)))
         try:
             yield
         finally:
@@ -72,29 +71,6 @@ def create_app(
         static.mount(app, dist or WEB_DIST)
     app.add_middleware(PanelOnly)
     return app
-
-
-#: How often the board is looked over. The rule it applies is measured in hours,
-#: so this only has to be often enough that a panel left open keeps up.
-TIDY_SECONDS = 300.0
-
-
-async def _tidy_board(services: Services, *, interval: float = TIDY_SECONDS) -> None:
-    """Take runs that ended long ago off the board, and say so.
-
-    Leaving the board is a change like any other, so every open panel hears it
-    instead of learning on its next full read -- which, with the panel open, may
-    never come.
-    """
-    while True:
-        # A turn that fails -- the database still busy after its wait -- is
-        # tried again at the next one. Ending the loop instead would leave the
-        # board untidied until the server restarts.
-        with suppress(Exception):
-            for flow_id in services.flows.stale_finished():
-                services.flows.set_cleared(flow_id, True)
-                services.publish_flow(flow_id)
-        await asyncio.sleep(interval)
 
 
 async def _first_look(services: Services) -> None:

@@ -1,8 +1,8 @@
 import type { Flow } from "@/api/types";
 
 /**
- * The flows not cleared off the board (the server decides when, so the board and
- * the names it holds are one list), in the board's own order: pinned first, then
+ * The flows not cleared off the board (the server marks what is cleared, so
+ * the board and the names it holds are one list), in the board's own order: pinned first, then
  * the flow made first. The server lists newest first and the cache appends a new
  * flow last, so their order would flip on a reload. A flow run again keeps the
  * time it was made, so it keeps its place.

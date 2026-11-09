@@ -49,7 +49,7 @@ describe("visibleFlows", () => {
     expect(found.map((item) => item.id)).toEqual(["a", "b"]);
   });
 
-  it("keeps a pinned flow however long ago it finished, and puts pinned flows first", () => {
+  it("puts pinned flows first, whatever their age", () => {
     const stale = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
     const found = visibleFlows([
       flow({ id: "a", status: "running" }),

@@ -3,22 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 import time
-from contextlib import suppress
 from copy import deepcopy
 
 import pytest
 
 from jk.store.records import (
-    KEEP_FINISHED_SECONDS,
     Drift,
     DriftEntry,
     FlowStatus,
     JenkinsJobRecord,
 )
 from jk.web import app as web_app
-from jk.web.app import _tidy_board
 from tests.webapp import (
     FakeJenkins,
     listed,
@@ -810,6 +806,7 @@ async def test_run_again_takes_the_place_of_the_flow_that_ended(client, services
     await start_reviewed(client, flow["id"])
     await services.supervisor.wait(flow["id"])
 
+    heard = services.bus.subscribe()
     again = (await client.post(f"/api/flows/{flow['id']}/rerun")).json()
 
     assert again["id"] != flow["id"]
@@ -821,6 +818,14 @@ async def test_run_again_takes_the_place_of_the_flow_that_ended(client, services
     assert [step["run_values"] for step in again["steps"]] == [
         step["run_values"] for step in flow["steps"]
     ]
+
+    # The hand-over that takes the original off is said out loud, so an open
+    # panel hears it instead of showing a card that is no longer there.
+    while True:
+        name, data = await asyncio.wait_for(heard.get(), 3)
+        if data["id"] == flow["id"]:
+            break
+    assert (name, data["cleared"]) == ("flow.updated", True)
     assert (await listed(client, "flows", flow["id"]))["cleared"] is True
 
 
@@ -929,8 +934,8 @@ async def test_the_board_hears_a_running_build_s_time_before_it_ends(
     assert step["estimate_ms"] == 1_200_000
 
 
-async def test_the_background_tidy_takes_it_off_and_says_so(client, services) -> None:
-    """The loop `jk serve` owns, one turn of it."""
+async def test_a_run_that_ended_long_ago_stays_on_the_board(client, services) -> None:
+    """Nothing takes a finished run off the board by itself."""
     preset = await make_cypress(client)
     flow = (
         await client.post(
@@ -941,69 +946,26 @@ async def test_the_background_tidy_takes_it_off_and_says_so(client, services) ->
     await services.supervisor.wait(flow["id"])
     services.store.connection.execute(
         "UPDATE flow_meta SET finished_at = ? WHERE run_id = ?",
-        (int(time.time()) - KEEP_FINISHED_SECONDS - 60, flow["id"]),
+        (int(time.time()) - 13 * 60 * 60, flow["id"]),
     )
     services.store.connection.commit()
-    heard = services.bus.subscribe()
 
-    tidy = asyncio.create_task(_tidy_board(services, interval=3600))
-    name, data = await asyncio.wait_for(heard.get(), 3)
-    tidy.cancel()
-    with suppress(asyncio.CancelledError):
-        await tidy
+    # Serving starts every background task; an ended run, however old, is
+    # still on the board after them.
+    app = web_app.create_app(services, serve_static=False, background=True)
+    async with app.router.lifespan_context(app):
+        await asyncio.sleep(0.1)
 
-    assert (name, data["cleared"]) == ("flow.updated", True)
-    assert (await listed(client, "flows", flow["id"]))["cleared"] is True
+    assert (await listed(client, "flows", flow["id"]))["cleared"] is False
 
 
-async def test_the_background_tidy_outlives_a_turn_that_fails(
-    client, services, monkeypatch
-) -> None:
-    """A database still busy after its wait costs one turn, not the loop."""
-    preset = await make_cypress(client)
-    flow = (
-        await client.post(
-            "/api/flows", json={"name": "Nightly", "steps": [{"preset_id": preset["id"]}]}
-        )
-    ).json()
-    await start_reviewed(client, flow["id"])
-    await services.supervisor.wait(flow["id"])
-    services.store.connection.execute(
-        "UPDATE flow_meta SET finished_at = ? WHERE run_id = ?",
-        (int(time.time()) - KEEP_FINISHED_SECONDS - 60, flow["id"]),
-    )
-    services.store.connection.commit()
-    looked = services.flows.stale_finished
-    turns: list[int] = []
-
-    def busy_the_first_time() -> list[str]:
-        turns.append(len(turns))
-        if len(turns) == 1:
-            raise sqlite3.OperationalError("database is locked")
-        return looked()
-
-    monkeypatch.setattr(services.flows, "stale_finished", busy_the_first_time)
-    heard = services.bus.subscribe()
-
-    tidy = asyncio.create_task(_tidy_board(services, interval=0.01))
-    name, data = await asyncio.wait_for(heard.get(), 3)
-    tidy.cancel()
-    with suppress(asyncio.CancelledError):
-        await tidy
-
-    assert len(turns) >= 2
-    assert (name, data["cleared"]) == ("flow.updated", True)
-
-
-async def test_serving_starts_the_tidy_and_closes_even_after_it_failed(
-    services, monkeypatch
-) -> None:
-    """The loop starts with the server; one that broke does not stop it shutting down."""
+async def test_serving_closes_even_after_a_background_task_failed(services, monkeypatch) -> None:
+    """A background task that broke does not stop the server shutting down."""
     started = asyncio.Event()
 
-    async def tidy_that_breaks(_services: object) -> None:
+    async def first_look_that_breaks(_services: object) -> None:
         started.set()
-        raise RuntimeError("the tidy broke")
+        raise RuntimeError("the first look broke")
 
     async def nothing(*_args: object, **_kwargs: object) -> None:
         return None
@@ -1013,8 +975,7 @@ async def test_serving_starts_the_tidy_and_closes_even_after_it_failed(
     async def shutdown() -> None:
         closed.append("supervisor")
 
-    monkeypatch.setattr(web_app, "_tidy_board", tidy_that_breaks)
-    monkeypatch.setattr(web_app, "_first_look", nothing)
+    monkeypatch.setattr(web_app, "_first_look", first_look_that_breaks)
     monkeypatch.setattr(services.supervisor, "start", nothing)
     monkeypatch.setattr(services.supervisor, "shutdown", shutdown)
     monkeypatch.setattr(services.drift, "run_forever", nothing)

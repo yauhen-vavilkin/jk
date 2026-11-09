@@ -17,7 +17,6 @@ from jk.store.coding import dump, string_list, string_map
 from jk.store.models import Run, StepState
 from jk.store.records import (
     ACTIVE_FLOW_STATUSES,
-    KEEP_FINISHED_SECONDS,
     Condition,
     FlowMeta,
     FlowStatus,
@@ -72,29 +71,12 @@ class FlowStore:
         ).fetchall()
         return [row["run_id"] for row in rows]
 
-    def stale_finished(self) -> list[str]:
-        """Runs that ended long enough ago to leave the board.
-
-        Reading only: the caller clears them one at a time and says so, so every
-        open panel hears it. A pinned flow stays until the user takes it off.
-        """
-        rows = self._connection.execute(
-            "SELECT run_id FROM flow_meta WHERE cleared = 0 AND pinned = 0 "
-            "AND status IN (?, ?) AND finished_at IS NOT NULL AND finished_at < ?",
-            (
-                FlowStatus.FINISHED.value,
-                FlowStatus.FAILED.value,
-                _now() - KEEP_FINISHED_SECONDS,
-            ),
-        ).fetchall()
-        return [row["run_id"] for row in rows]
-
     def board_names(self, *, excluding: str | None = None) -> list[str]:
         """The names on the board: every flow that has not been cleared off it.
 
-        A run that ended is on the board until it is cleared, by the trash or by
-        the server's own tidy of `stale_finished`, so a name is held exactly while
-        it can be seen.
+        A run that ended is on the board until the user clears it -- or a rerun
+        hands its name to the copy -- so a name is held exactly while it can
+        be seen.
         What is cleared is History, and History may hold a name twice -- two runs
         of one flow always do.
         """

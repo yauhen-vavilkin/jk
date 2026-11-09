@@ -42,10 +42,6 @@ ACTIVE_FLOW_STATUSES = frozenset(
     }
 )
 
-#: How long a run that ended stays on the board before it leaves for History.
-#: Pinned flows stay until the user takes them off.
-KEEP_FINISHED_SECONDS = 12 * 60 * 60
-
 
 @dataclass(frozen=True)
 class ParamSetting:
@@ -179,7 +175,7 @@ class FlowMeta:
     finished_at: int | None
     saved_flow_id: str | None
     steps: dict[int, FlowStepMeta] = field(default_factory=dict)
-    #: Kept at the top of the board, and on it, until the user takes it off.
+    #: Kept at the top of the board.
     pinned: bool = False
     #: The user is still building this flow: it can be changed but not run. Only
     #: a draft is ever being edited; every other status means it has started.
