@@ -92,15 +92,30 @@ export default function Menu({
   );
 }
 
-export function MenuItem({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+export function MenuItem({
+  children,
+  onClick,
+  disabled = false,
+  why,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  /** Shown, and reached by the arrow keys, but it does nothing; `why` says what it waits for. */
+  disabled?: boolean;
+  why?: string;
+}) {
   return (
     <button
       type="button"
       role="menuitem"
-      onClick={onClick}
-      className="px-3 py-2 text-left text-[14px] text-key transition-colors duration-150 hover:bg-surface-2 hover:text-text"
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className={`flex flex-col px-3 py-2 text-left text-[14px] transition-colors duration-150 ${
+        disabled ? "cursor-default text-dim" : "text-key hover:bg-surface-2 hover:text-text"
+      }`}
     >
-      {children}
+      <span>{children}</span>
+      {why && <span className="text-[13px] text-dim">{why}</span>}
     </button>
   );
 }

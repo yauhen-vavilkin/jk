@@ -124,16 +124,20 @@ The panel has three pages:
   opens its review. The previous run stays on the Board until the copy starts
   successfully. A failed review sends nothing. **Cancel** removes the copy; if
   JK is offline, reconnect and cancel again. After a reload, the READY copy can
-  be reviewed or deleted normally; remove the original from the Board separately. **Edit** -- or a saved job dropped on an ended
-  flow -- replaces it with a copy to be changed first. **Duplicate** makes a
-  second flow with the same steps
-  under a free name. **Save** writes the flow's steps -- the jobs, in order, with
-  their conditions and the values typed for them -- into **Saved flows**, so a
-  flow taken from it later starts with those values filled in. It lights up while
-  the flow differs from the saved flow it is kept as, reads **Saving…** on the
-  way, and **Saved** once there is nothing left to save; a flow never saved shows
-  a plain **Save**. The flow's name is not part of it: the saved flow keeps the
-  name its own row gives it, so nothing you do on the board ever renames it.
+  be reviewed or deleted normally; remove the original from the Board separately.
+
+  A flow's header has one main button for what comes next -- **Run**,
+  **Run again**, **Resolve step N** or **Review added steps** -- with **Stop**
+  or **Resume** beside it. Everything else is behind **More actions**, the three-dot button:
+  **Pin**, **Save**, **Duplicate**, **Edit a copy** on a flow that ended, and
+  **Remove**. **Edit a copy** -- or a saved job dropped on an ended flow --
+  replaces it with a copy to be changed first. **Duplicate** makes a second
+  flow with the same steps under a free name. **Save** writes the flow's steps
+  -- the jobs, in order, with their conditions and the values typed for them --
+  into **Saved flows**, so a flow taken from it later starts with those values
+  filled in. It reads **Saving…** on the way, and **Saved** once there is
+  nothing left to save. The flow's name is not part of it: the saved flow keeps
+  the name its own row gives it, so nothing you do on the board ever renames it.
   A flow with a value still empty cannot start: its header reads **NOT READY**,
   and **Fill N values** stands where **Run** will be. It opens the first step
   with a value still empty, as **step 2 of 6**; a value an earlier step already
@@ -143,7 +147,7 @@ The panel has three pages:
   jobs** opens the saved job in the Library. **Remove** takes the flow off the
   board and leaves what is kept where it is: a flow that ran stays in History,
   and a draft, which never ran, is deleted. Either way a line above the board
-  offers **Undo** for a few seconds. The pin keeps a flow at the top. The `~` times are
+  offers **Undo** for a few seconds. **Pin** keeps a flow at the top. The `~` times are
   Jenkins' guess, from how long each job last took.
 
   Two flows on the board never share a name, and neither do two saved flows. A

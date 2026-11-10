@@ -1,13 +1,11 @@
-// The one row that says what a flow is doing and what can be done about it.
-// Buttons, not menus: Run, Stop, Resume, edit, save as flow, duplicate, remove.
-import { Bookmark, Check, Copy, Pencil, Pin, PinOff, X } from "lucide-react";
+// The one row that says what a flow is doing and what can be done about it: one
+// main button for what comes next (Run, Run again, Resolve, Review added steps),
+// Stop or Resume beside it, and everything else behind "More actions".
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { Drift, Flow, SavedFlow, Step } from "@/api/types";
-import IconButton from "@/components/ui/IconButton";
 import InlineConfirm from "@/components/ui/InlineConfirm";
-import { SAVE, SAVED, SAVING } from "@/components/ui/SaveButton";
 import StatusIcon from "@/components/ui/StatusIcon";
 import {
   DangerButton,
@@ -29,15 +27,13 @@ import {
   trashAction,
   undecidedStep,
 } from "./headerState";
+import FlowMenu from "./FlowMenu";
 
 export const STOP_FIRST = "Stop the flow first";
 export const UNREACHABLE = "Jenkins is unreachable";
 // A draft never ran, so it is gone; a flow that ran leaves only the board.
 export const REMOVE_DRAFT = "Delete this draft. History does not keep it.";
 export const REMOVE_RAN = "Remove from the board. History keeps it.";
-export const EDIT_ENDED = "Replace with an editable copy";
-/** Wide enough for `Saving…`, so the buttons beside Save stay where they are. */
-const SAVE_WIDTH = 96;
 
 /** Where focus goes back to when an in-place choice, or the name field, closes. */
 type FocusBack = "name" | "stop" | "remove" | null;
@@ -311,53 +307,24 @@ export default function FlowHeader({
                 Resume from step {flow.failed_at_position + 1}
               </SecondaryButton>
             )}
-            {/* A copy asks Jenkins for nothing, so it stays on when Jenkins is away. */}
-            {hasEnded(flow) && (
-              <IconButton
-                icon={Pencil}
-                label="Edit"
-                title={EDIT_ENDED}
-                quiet
-                disabled={busy}
-                onClick={onEdit}
-              />
-            )}
-            <IconButton
-              icon={flow.pinned ? PinOff : Pin}
-              label={flow.pinned ? "Unpin" : "Pin"}
-              active={flow.pinned}
-              quiet
-              onClick={() => onPin(!flow.pinned)}
-            />
-            <IconButton
-              icon={save === "saved" ? Check : Bookmark}
-              label={save === "saving" ? SAVING : save === "saved" ? SAVED : SAVE}
-              title={save === "saved" ? `Saved as "${keptAs?.name ?? ""}"` : undefined}
-              // Lit only while there is something to keep; after a save it reads
-              // Saved until the steps change again.
-              active={save === "changed"}
-              muted={save === "saving" || save === "saved"}
-              quiet
-              minWidth={SAVE_WIDTH}
-              onClick={onSaveAsFlow}
-            />
-            <IconButton icon={Copy} label="Duplicate" quiet disabled={busy} onClick={onDuplicate} />
-            <IconButton
-              icon={X}
-              label="Remove"
-              title={
-                trash === "disabled"
-                  ? (removeWaitsFor(flow) ?? STOP_FIRST)
-                  : trash === "delete"
-                    ? REMOVE_DRAFT
-                    : REMOVE_RAN
-              }
-              disabled={trash === "disabled"}
-              quiet
+            <FlowMenu
               autoFocus={focusBack === "remove"}
-              // A draft and a flow that ended go at once; a stopped one asks, because
-              // it still has steps that never started.
-              onClick={() => (flow.status === "stopped" ? setDeleting(true) : onDelete())}
+              items={{
+                pinned: flow.pinned,
+                onPin,
+                save,
+                keptName: keptAs?.name,
+                onSave: onSaveAsFlow,
+                onDuplicate,
+                // A copy asks Jenkins for nothing, so it stays on when Jenkins is away.
+                onEditCopy: hasEnded(flow) ? onEdit : undefined,
+                removeWaits: trash === "disabled" ? (removeWaitsFor(flow) ?? STOP_FIRST) : undefined,
+                removeTitle: trash === "delete" ? REMOVE_DRAFT : REMOVE_RAN,
+                // A draft and a flow that ended go at once; a stopped one asks, because
+                // it still has steps that never started.
+                onRemove: () => (flow.status === "stopped" ? setDeleting(true) : onDelete()),
+                busy,
+              }}
             />
           </>
         )}
