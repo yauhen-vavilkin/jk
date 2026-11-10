@@ -15,15 +15,15 @@ describe("api", () => {
   });
 
   it("carries JK's own sentence when JK answered with an error", async () => {
-    const body = { error: { code: "flow_editing", message: "Press Done before running this flow." } };
+    const body = { error: { code: "flow_changed", message: "The flow changed during the review. Review it again." } };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 409 })),
     );
     await expect(api.post("/flows/f-1/start")).rejects.toMatchObject({
       status: 409,
-      code: "flow_editing",
-      message: "Press Done before running this flow.",
+      code: "flow_changed",
+      message: "The flow changed during the review. Review it again.",
     });
   });
 });

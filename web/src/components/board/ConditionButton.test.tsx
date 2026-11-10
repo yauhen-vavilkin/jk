@@ -59,7 +59,7 @@ describe("the condition button", () => {
 
 describe("the condition of a step in a started flow", () => {
   it("changes only on a step that waits for its review, as the server allows", () => {
-    const flow = { id: "f", status: "running", editing: false } as Flow;
+    const flow = { id: "f", status: "running" } as Flow;
     const card = (held: boolean) => {
       const step = { id: "s1", position: 1, condition: "unless_failure", state: "planned", held, run_values: {}, summary: [] };
       return <StepCardBody step={step as unknown as Step} flow={flow} onCondition={() => {}} />;

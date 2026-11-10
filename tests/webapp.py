@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -42,6 +43,9 @@ class FakeJenkins:
     building: bool = False
     #: Builds a reconciliation search may find, as {number: {parameter: value}}.
     recent: dict[int, dict[str, str]] = field(default_factory=dict)
+    #: Run once, the next time a job's parameter definitions are read: stands in
+    #: for a request the panel makes while a review awaits Jenkins.
+    on_definitions: Callable[[], None] | None = None
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self.handle)
@@ -104,6 +108,9 @@ class FakeJenkins:
         if path.endswith("/api/json"):
             job_path = _job_path_of(path)
             if job_path in self.definitions:
+                if self.on_definitions is not None and "parameterDefinitions" in tree:
+                    hook, self.on_definitions = self.on_definitions, None
+                    hook()
                 return httpx.Response(
                     200,
                     json={
@@ -168,11 +175,7 @@ async def start_reviewed(
     flow_id: str,
     run_values: dict[str, dict[str, str]] | None = None,
 ) -> httpx.Response:
-    """Start a draft the way the panel does.
-
-    Editing is turned off first, then the review is read and its token sent.
-    """
-    await client.patch(f"/api/flows/{flow_id}", json={"editing": False})
+    """Start a draft the way the panel does: read the review, then send its token."""
     token = (await client.post(f"/api/flows/{flow_id}/review", json={})).json()["review_token"]
     return await client.post(
         f"/api/flows/{flow_id}/start",

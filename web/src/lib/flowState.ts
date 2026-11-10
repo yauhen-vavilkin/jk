@@ -1,6 +1,5 @@
-// What a flow is at this moment, in one place. `draft` says it has not started,
-// `editing` says the user is still building it. A draft that is not being
-// edited is ready: it runs, and it does not change.
+// What a flow is at this moment, in one place. `draft` says it has not started:
+// it can be changed at any time, and it runs once its review is confirmed.
 import type { Flow, FlowStatus } from "@/api/types";
 
 /** On the board because something may still happen to it. */
@@ -11,9 +10,8 @@ export const isActive = (flow: Flow) => ACTIVE_STATUSES.includes(flow.status);
 /** A record of a run. It is not changed; it is run again, or opened as a copy. */
 export const hasEnded = (flow: Flow) => flow.status === "finished" || flow.status === "failed";
 
-/** A saved job dropped here would land. A ready draft is closed; a running flow is not. */
-export const acceptsAStep = (flow: Flow) => (flow.status === "draft" ? flow.editing : isActive(flow));
+/** A saved job dropped here would land: a draft, or a flow still going. */
+export const acceptsAStep = (flow: Flow) => isActive(flow);
 
-/** The steps may be changed: a draft being built, or a flow still going. A record is not. */
-export const canChangeSteps = (flow: Flow) =>
-  flow.status === "draft" ? flow.editing : !hasEnded(flow);
+/** The steps not sent yet may be changed: in a draft, or a flow still going. A record is not. */
+export const canChangeSteps = (flow: Flow) => !hasEnded(flow);

@@ -177,6 +177,3 @@ class FlowMeta:
     steps: dict[int, FlowStepMeta] = field(default_factory=dict)
     #: Kept at the top of the board.
     pinned: bool = False
-    #: The user is still building this flow: it can be changed but not run. Only
-    #: a draft is ever being edited; every other status means it has started.
-    editing: bool = False

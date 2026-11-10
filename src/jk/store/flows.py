@@ -99,13 +99,8 @@ class FlowStore:
         saved_flow_id: str | None = None,
         pinned: bool = False,
         created_at: int | None = None,
-        editing: bool = True,
     ) -> str:
-        """A new draft. `created_at` lets a flow that is run again keep its place on the board.
-
-        A flow is being built unless the caller says otherwise: what comes from a
-        saved flow is ready to run, because it was built once already.
-        """
+        """A new draft. `created_at` lets a flow that is run again keep its place on the board."""
         flow_id = str(uuid.uuid4())
         now = _now()
         with self._store.transaction() as connection:
@@ -115,9 +110,9 @@ class FlowStore:
                 (flow_id, name, created_at if created_at is not None else now, now),
             )
             connection.execute(
-                "INSERT INTO flow_meta(run_id, status, cleared, saved_flow_id, pinned, editing) "
-                "VALUES (?, ?, 0, ?, ?, ?)",
-                (flow_id, FlowStatus.DRAFT.value, saved_flow_id, int(pinned), int(editing)),
+                "INSERT INTO flow_meta(run_id, status, cleared, saved_flow_id, pinned) "
+                "VALUES (?, ?, 0, ?, ?)",
+                (flow_id, FlowStatus.DRAFT.value, saved_flow_id, int(pinned)),
             )
         return flow_id
 
@@ -309,7 +304,7 @@ class FlowStore:
         """Keep an unsent step resumable without overwriting a later Stop or claim."""
         with self._store.transaction() as connection:
             cursor = connection.execute(
-                "UPDATE flow_meta SET status = ?, editing = 0 WHERE run_id = ? AND status = ? "
+                "UPDATE flow_meta SET status = ? WHERE run_id = ? AND status = ? "
                 "AND EXISTS (SELECT 1 FROM steps s WHERE s.run_id = flow_meta.run_id "
                 "AND s.position = ? AND s.state = ?)",
                 (
@@ -345,10 +340,6 @@ class FlowStore:
             connection.execute(
                 "UPDATE flow_meta SET status = ? WHERE run_id = ?", (status.value, flow_id)
             )
-            # Only a draft is ever being edited: a flow that has started is past
-            # being built, whatever it was marked as a moment before.
-            if status is not FlowStatus.DRAFT:
-                connection.execute("UPDATE flow_meta SET editing = 0 WHERE run_id = ?", (flow_id,))
             if failed_at_position is not None or clear_failed:
                 connection.execute(
                     "UPDATE flow_meta SET failed_at_position = ? WHERE run_id = ?",
@@ -394,13 +385,6 @@ class FlowStore:
         with self._store.transaction() as connection:
             connection.execute(
                 "UPDATE flow_meta SET pinned = ? WHERE run_id = ?", (int(pinned), flow_id)
-            )
-
-    def set_editing(self, flow_id: str, editing: bool) -> None:
-        """Only a draft is ever being edited; the caller holds that rule."""
-        with self._store.transaction() as connection:
-            connection.execute(
-                "UPDATE flow_meta SET editing = ? WHERE run_id = ?", (int(editing), flow_id)
             )
 
     def set_cleared(self, flow_id: str, cleared: bool) -> None:
@@ -493,5 +477,4 @@ class FlowStore:
             saved_flow_id=row["saved_flow_id"],
             steps=steps,
             pinned=bool(row["pinned"]),
-            editing=bool(row["editing"]),
         )

@@ -68,8 +68,8 @@ export default function FlowSection({
   askedOf: (step: Step) => string[];
   onReviewHeld: () => void;
   onRunAgain: () => void;
-  /** Turns editing on or off; on a flow that ended, opens a copy to change. */
-  onEdit: (editing: boolean) => void;
+  /** On a flow that ended, opens a copy to change in its place. */
+  onEdit: () => void;
   /** A second flow with the same steps, under a free name. */
   onDuplicate: () => void;
   onPin: (pinned: boolean) => void;
@@ -94,7 +94,7 @@ export default function FlowSection({
 }) {
   const accepts = acceptsAStep(flow);
   // A card dropped on a flow that ended opens a copy of it to change, so that
-  // flow is a target too. A draft nobody is editing is not: it is built already.
+  // flow is a target too.
   const droppable = useDroppable({ id: `flow:${flow.id}`, disabled: !accepts && !hasEnded(flow) });
   const [openStep, setOpenStep] = useState<{ id: string; card: HTMLElement } | null>(null);
   // Only a saved job or a saved flow adds a step; a card of this flow being
@@ -107,12 +107,9 @@ export default function FlowSection({
     <div
       ref={droppable.setNodeRef}
       id={`flow-${flow.id}`}
-      // The dashed rule down the left says this flow is open to change. It is a
-      // hairline like every other, and only the left side is dashed: the top
-      // border is the divider between flows and stays solid.
-      className={`flex scroll-mt-4 flex-col border-l border-t border-t-hairline pb-[22px] pl-3 pt-[18px] transition-colors duration-700 ${
-        flow.editing ? "border-l-dim [border-left-style:dashed]" : "border-l-transparent"
-      } ${highlight ? "bg-surface" : ""}`}
+      className={`flex scroll-mt-4 flex-col border-t border-t-hairline pb-[22px] pl-3 pt-[18px] transition-colors duration-700 ${
+        highlight ? "bg-surface" : ""
+      }`}
     >
       <FlowHeader
         flow={flow}
@@ -159,7 +156,7 @@ export default function FlowSection({
                   onOpen={(clicked, card) =>
                     clicked.state === "needs_attention"
                       ? onOpenAttention(clicked)
-                      : clicked.held && !flow.editing
+                      : clicked.held
                         ? onReviewHeld()
                         : setOpenStep((open) => (open?.id === clicked.id ? null : { id: clicked.id, card }))
                   }
@@ -180,14 +177,14 @@ export default function FlowSection({
           ))}
 
           {/* A flow that ended shows the slot only while a card is held over it:
-              that drop is what opens it for editing again. */}
+              that drop is what opens a copy of it to change. */}
           {(accepts || adding) && (
             <AddSlot
               flowId={flow.id}
               position={flow.steps.length}
               // Only the one slot the card would land in is lit.
               over={insertIndex === null ? adding : insertIndex === flow.steps.length}
-              insertable={flow.editing}
+              insertable={flow.status === "draft"}
               onAdd={onAddStep}
             />
           )}

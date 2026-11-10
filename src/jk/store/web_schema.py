@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS flow_meta (
     started_at         INTEGER,
     finished_at        INTEGER,
     saved_flow_id      TEXT,
+    -- No longer read: the Edit mode was removed. Kept so old databases need no change.
     editing            INTEGER NOT NULL DEFAULT 0
 );
 

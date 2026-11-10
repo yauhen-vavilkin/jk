@@ -359,7 +359,7 @@ def seed(services) -> None:
     add(draft, diku, Condition.AFTER_SUCCESS)
 
     # One that is built and waiting, so the board shows both sides of the pencil.
-    ready = flows.create(name="Nightly Cypress on trillium", created_at=next(made), editing=False)
+    ready = flows.create(name="Nightly Cypress on trillium", created_at=next(made))
     add(ready, trillium)
     add(ready, four, Condition.AFTER_SUCCESS)
 

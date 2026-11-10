@@ -19,7 +19,6 @@ function flow(over: Partial<Flow>): Flow {
     result: "SUCCESS",
     saved_flow_id: null,
     pinned: false,
-    editing: false,
     estimate_ms: null,
     ...over,
   };

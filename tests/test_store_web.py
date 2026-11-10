@@ -189,44 +189,6 @@ def test_a_new_flow_is_a_draft_run_with_no_steps(store: RunStore) -> None:
     assert meta.cleared is False
 
 
-def test_a_new_flow_is_being_edited(store: RunStore) -> None:
-    flows = FlowStore(store)
-
-    _, meta = flows.get(flows.create(name="Built by hand"))
-
-    assert meta.editing is True
-
-
-def test_a_flow_that_came_ready_is_not_being_edited(store: RunStore) -> None:
-    flows = FlowStore(store)
-
-    # What comes from a saved flow was built once already.
-    _, meta = flows.get(flows.create(name="From a saved flow", editing=False))
-
-    assert meta.editing is False
-
-
-def test_editing_is_turned_on_and_off_in_place(store: RunStore) -> None:
-    flows = FlowStore(store)
-    flow_id = flows.create(name="Flow")
-
-    flows.set_editing(flow_id, False)
-    assert flows.get(flow_id)[1].editing is False
-
-    flows.set_editing(flow_id, True)
-    assert flows.get(flow_id)[1].editing is True
-
-
-def test_a_flow_that_starts_is_no_longer_being_edited(store: RunStore) -> None:
-    flows = FlowStore(store)
-    flow_id = flows.create(name="Flow")
-
-    flows.set_status(flow_id, FlowStatus.RUNNING, started=True)
-
-    # Past being built, whatever it was marked as a moment before.
-    assert flows.get(flow_id)[1].editing is False
-
-
 def test_a_run_that_ended_stays_on_the_board_until_it_is_cleared(store: RunStore) -> None:
     flows = FlowStore(store)
     ended = flows.create(name="long since over")

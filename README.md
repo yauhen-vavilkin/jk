@@ -94,19 +94,24 @@ The panel has three pages:
   saved flow's row there reads its steps and Jenkins' guess for them, as in
   `6 steps · ~42m`.
 
-  A flow on the board is one of two things, and **Edit** moves between them; it
-  reads **Done** while you are editing. The flow says **EDITING** then: steps can
-  be added, reordered and removed, its name can be changed, and **Run** waits.
-  After **Done** it says **READY**: it runs, and nothing about it changes by
-  accident. A flow dragged in from **Saved flows** arrives ready, because it was
-  built once already.
+  A flow that has not started is a draft, and a draft is always open to change:
+  steps are added, reordered and removed, and a click on its name renames it.
+  It says **READY** when nothing is missing, and **Run** opens its review. If the
+  flow changes while that review is being checked against Jenkins, nothing is
+  sent and the review is asked for again.
+
+  Removing or moving a step of a draft happens at once, and a line above the
+  board offers **Undo** for a few seconds, which puts the step back as it was.
+  In a flow that has started, only the steps not sent yet change: a move offers
+  **Undo** too, and the **×** of a step asks **Remove step N?** on its card
+  first, because the flow may reach that step at any moment.
 
   **New flow**, beside the **Flows** heading, opens a short list of saved jobs
   and saved flows with a search field, and starts a flow from the one you pick.
   The **+** at the end of a flow opens the same list and adds the pick as its
-  last step. Dragging does the same: a saved job dropped on a card of a flow
-  that says **EDITING** goes before that card on its left half and after it on
-  its right half, and anywhere else on a flow it goes at the end. Steps inside
+  last step. Dragging does the same: a saved job dropped on a card of a draft
+  goes before that card on its left half and after it on its right half, and
+  anywhere else on a flow it goes at the end. Steps inside
   a flow run in the order shown, and flows run beside each other. A flow accepts
   a new step while it is running. The icon before **STEP N** says when that step
   starts, and changes it; by default a failed step ends the flow. A step not yet

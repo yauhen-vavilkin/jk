@@ -129,8 +129,6 @@ async def test_a_saved_flow_becomes_a_draft_with_all_its_steps(client, services)
     flow = (await client.post(f"/api/saved-flows/{saved['id']}/instantiate", json={})).json()
 
     assert flow["status"] == "draft"
-    # It was built once already, so it lands ready to run, not open to change.
-    assert flow["editing"] is False
     assert [step["preset_id"] for step in flow["steps"]] == [preset_id]
     assert flow["name"] == saved["name"]
 
@@ -266,7 +264,6 @@ async def test_saving_a_flow_again_never_renames_the_template(client, services) 
     # The second card was named by the board; saving it must not carry that name
     # onto the template both cards came from.
     await client.post(f"/api/flows/{second['id']}/save")
-    await client.patch(f"/api/flows/{first['id']}", json={"editing": True})
     await client.patch(f"/api/flows/{first['id']}", json={"name": "Renamed for this run"})
     await client.post(f"/api/flows/{first['id']}/save")
 
@@ -275,28 +272,11 @@ async def test_saving_a_flow_again_never_renames_the_template(client, services) 
     ]
 
 
-async def test_a_saved_flow_is_not_appended_to_a_flow_that_is_not_being_edited(
-    client, services
-) -> None:
-    preset_id = await save_from_library(client)
-    save_a_flow(services, preset_id)
-    saved = (await client.get("/api/saved-flows")).json()[0]
-    ready = (await client.post(f"/api/saved-flows/{saved['id']}/instantiate", json={})).json()
-
-    refused = await client.post(
-        f"/api/saved-flows/{saved['id']}/instantiate", json={"flow_id": ready["id"]}
-    )
-
-    assert refused.status_code == 409
-    assert refused.json()["error"]["code"] == "flow_not_editing"
-
-
 async def test_a_saved_flow_can_be_appended_to_an_existing_flow(client, services) -> None:
     preset_id = await save_from_library(client)
     save_a_flow(services, preset_id)
     saved = (await client.get("/api/saved-flows")).json()[0]
     first = (await client.post(f"/api/saved-flows/{saved['id']}/instantiate", json={})).json()
-    await client.patch(f"/api/flows/{first['id']}", json={"editing": True})
 
     appended = (
         await client.post(
@@ -346,7 +326,6 @@ async def test_renaming_a_flow_leaves_the_saved_flow_alone(client, services) -> 
     saved = (await client.get("/api/saved-flows")).json()[0]
     flow = (await client.post(f"/api/saved-flows/{saved['id']}/instantiate", json={})).json()
     assert flow["saved_flow_id"] == saved["id"]
-    await client.patch(f"/api/flows/{flow['id']}", json={"editing": True})
 
     await client.patch(f"/api/flows/{flow['id']}", json={"name": "Renamed for this run"})
 

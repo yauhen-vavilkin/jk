@@ -35,22 +35,16 @@ const flow = (patch: Partial<Flow>): Flow =>
   }) as Flow;
 
 describe("headerStateOf", () => {
-  it("says a draft the user is building is being edited, in the text colour", () => {
-    const state = headerStateOf(flow({ status: "draft", editing: true }));
-    expect([state.glyph, state.word, state.tone]).toEqual(["editing", "EDITING", "text-text"]);
-  });
-
-  it("says a draft nobody is changing is ready to run", () => {
-    const state = headerStateOf(flow({ status: "draft", editing: false }));
+  it("says a draft with nothing missing is ready to run", () => {
+    const state = headerStateOf(flow({ status: "draft" }));
     expect([state.glyph, state.word]).toEqual(["ready", "READY"]);
   });
 
   it("says NOT READY while a value is empty or a saved job changed in Jenkins", () => {
-    const built = flow({ status: "draft", editing: false });
+    const built = flow({ status: "draft" });
     const state = headerStateOf(built, 1);
     expect([state.word, state.tone]).toEqual(["NOT READY", "text-dim"]);
     expect(headerStateOf(built, 0, 2).word).toBe("NOT READY");
-    expect(headerStateOf(flow({ status: "draft", editing: true }), 3, 1).word).toBe("EDITING");
   });
 
   it("names the step that failed, with its own word, past the steps skipped after it", () => {

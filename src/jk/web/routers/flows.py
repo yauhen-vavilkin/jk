@@ -33,26 +33,15 @@ def _flow(services: Services, flow_id: str):
     return found
 
 
-def _require_editable(meta: FlowMeta) -> None:
-    """A draft is changed only while it is being edited.
-
-    Every other status keeps the rules it always had: what a running flow allows
-    is decided by the step, not by this.
-    """
-    if meta.status is FlowStatus.DRAFT and not meta.editing:
-        raise errors.conflict("flow_not_editing", "Turn editing on to change this flow.")
-
-
 def _refuse_unless_ready(meta: FlowMeta) -> None:
-    """Nothing is sent for a flow the user is still building.
+    """Only a draft starts.
 
-    Asked on both sides of the review, because the review awaits Jenkins and
-    editing can be turned back on while it does.
+    Asked on both sides of the review, because the review awaits Jenkins. A draft
+    can be changed at any time; `_refuse_if_changed` stops a start whose steps
+    moved while the review awaited.
     """
     if meta.status is not FlowStatus.DRAFT:
         raise errors.conflict("flow_started", "This flow has already started.")
-    if meta.editing:
-        raise errors.conflict("flow_editing", "Press Done before running this flow.")
 
 
 def _preset(services: Services, preset_id: str) -> Preset:
@@ -184,7 +173,6 @@ async def patch_flow(request: Request, flow_id: str, body: schemas.FlowPatch) ->
             )
         if meta.status is not FlowStatus.DRAFT:
             raise errors.conflict("flow_started", "This flow has already started.")
-        _require_editable(meta)
         wanted = naming.tidy(body.name)
         if not wanted:
             raise errors.name_empty()
@@ -193,10 +181,6 @@ async def patch_flow(request: Request, flow_id: str, body: schemas.FlowPatch) ->
         # The saved flow this one is kept as keeps its own name: a copy on the
         # board is renamed for this run, not for every run to come.
         services.flows.rename(flow_id, wanted)
-    if body.editing is not None:
-        if meta.status is not FlowStatus.DRAFT:
-            raise errors.conflict("flow_started", "This flow has already started.")
-        services.flows.set_editing(flow_id, body.editing)
     if body.cleared is not None:
         if body.cleared and meta.status in ACTIVE_FLOW_STATUSES:
             _refuse_unless_settled(run, meta)
@@ -223,7 +207,6 @@ async def add_step(request: Request, flow_id: str, body: schemas.StepAdd) -> sch
     _, meta = _flow(services, flow_id)
     if meta.status not in ACTIVE_FLOW_STATUSES:
         raise errors.conflict("flow_finished", "This flow has finished; start a new one.")
-    _require_editable(meta)
     # A step takes a place of its own only in a draft: once a flow has started,
     # the order it is running in is the order it was reviewed in.
     if body.position is not None and meta.status is not FlowStatus.DRAFT:
@@ -251,8 +234,6 @@ async def patch_step(
     _, meta = _flow(services, flow_id)
     # A value asked at launch belongs to this run, not to the shape of the flow,
     # so a flow that is built and waiting still takes one.
-    if body.condition is not None or body.position is not None:
-        _require_editable(meta)
     position = _position(flow_id, step_id)
     if services.supervisor.is_sending(flow_id):
         raise errors.flow_sending()
@@ -284,8 +265,7 @@ async def patch_step(
 @router.delete("/{flow_id}/steps/{step_id}", response_model=schemas.Flow)
 async def delete_step(request: Request, flow_id: str, step_id: str) -> schemas.Flow:
     services = services_of(request)
-    _, meta = _flow(services, flow_id)
-    _require_editable(meta)
+    _flow(services, flow_id)
     if services.supervisor.is_sending(flow_id):
         raise errors.flow_sending()
     if not services.flows.remove_step(flow_id, _position(flow_id, step_id)):
@@ -313,10 +293,11 @@ async def start_flow(request: Request, flow_id: str, body: schemas.FlowStart) ->
     _, meta = _flow(services, flow_id)
     _refuse_unless_ready(meta)
     _apply_run_values(services, flow_id, body.run_values)
+    before = _step_order(services, flow_id)
     checked = await review.build(services, flow_id, scope="all")
-    _refuse_unless_reviewed(checked, body.review_token)
-
     # The review awaited Jenkins; decide again on what is true now.
+    _refuse_if_changed(services, flow_id, before)
+    _refuse_unless_reviewed(checked, body.review_token)
     _, meta = _flow(services, flow_id)
     _refuse_unless_ready(meta)
     _freeze(services, flow_id, checked)
@@ -334,7 +315,9 @@ async def confirm_held(request: Request, flow_id: str, body: schemas.FlowConfirm
     if services.supervisor.is_sending(flow_id):
         raise errors.flow_sending()
     _apply_run_values(services, flow_id, body.run_values)
+    before = _step_order(services, flow_id)
     checked = await review.build(services, flow_id, scope="held")
+    _refuse_if_changed(services, flow_id, before)
     _refuse_unless_reviewed(checked, body.review_token)
 
     if services.supervisor.is_sending(flow_id):
@@ -361,9 +344,11 @@ async def resume_flow(request: Request, flow_id: str, body: schemas.FlowResume) 
     run, meta = _flow(services, flow_id)
     _check_resumable(services, run, meta)
     _apply_run_values(services, flow_id, body.run_values)
+    before = _step_order(services, flow_id)
     checked = await review.build(
         services, flow_id, scope="resume", from_position=body.from_position
     )
+    _refuse_if_changed(services, flow_id, before)
     _refuse_unless_reviewed(checked, body.review_token)
 
     run, meta = _flow(services, flow_id)
@@ -418,6 +403,32 @@ def _apply_run_values(
         services.flows.update_step(flow_id, position, run_values=values)
 
 
+def _step_order(services: Services, flow_id: str) -> tuple:
+    """What stands at each position: its saved job, condition and values.
+
+    A review reads the steps, then awaits Jenkins, then writes the reviewed
+    bodies by position. Comparing this before and after the await makes sure
+    each body still lands on the step it was reviewed for.
+    """
+    _, meta = services.flows.get(flow_id)
+    return tuple(
+        (
+            position,
+            step.preset_id,
+            step.condition,
+            tuple(sorted(step.run_values.items())),
+        )
+        for position, step in sorted(meta.steps.items())
+    )
+
+
+def _refuse_if_changed(services: Services, flow_id: str, before: tuple) -> None:
+    if _step_order(services, flow_id) != before:
+        raise errors.conflict(
+            "flow_changed", "The flow changed during the review. Review it again."
+        )
+
+
 def _refuse_unless_reviewed(checked: schemas.Review, token: str) -> None:
     reason = review.refusal(checked, token)
     if reason is not None:
@@ -441,8 +452,8 @@ async def rerun_flow(
 ) -> schemas.Flow:
     """The same flow as a fresh copy, optionally retaining the original on the Board.
 
-    `Run again` asks for a copy that is ready, and reviews it at once. The pencil
-    asks for one that is open to change, and stops there. Either way it never
+    `Run again` reviews the copy at once; editing a copy stops at the draft. Either
+    way it never
     refuses: a saved job Jenkins changed, and one that is gone, come along as they
     are, to be replaced here. Review says so before anything is sent.
     """
@@ -462,7 +473,6 @@ async def rerun_flow(
         saved_flow_id=services.kept_as(meta.saved_flow_id),
         pinned=meta.pinned,
         created_at=run.created_at,
-        editing=asked.editing,
     )
     _copy_steps(services, run, meta, new_id)
     if leaving:
@@ -483,7 +493,6 @@ async def duplicate_flow(request: Request, flow_id: str) -> schemas.Flow:
     run, meta = _flow(services, flow_id)
     copy_id = services.flows.create(
         name=naming.copy_name(run.name, services.flows.board_names()),
-        editing=True,
     )
     _copy_steps(services, run, meta, copy_id)
     services.publish_flow(copy_id)

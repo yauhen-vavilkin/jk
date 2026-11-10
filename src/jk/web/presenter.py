@@ -277,6 +277,5 @@ def flow(
         result=flow_result(run),
         saved_flow_id=saved_flow_id,
         pinned=meta.pinned,
-        editing=meta.editing,
         estimate_ms=remaining_estimate(steps),
     )

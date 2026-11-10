@@ -117,55 +117,31 @@ async def test_a_drifted_preset_cannot_be_dropped_into_a_flow(client, services) 
     )
 
 
-async def test_a_flow_built_here_starts_out_being_edited(client) -> None:
-    flow = (await client.post("/api/flows", json={})).json()
-
-    assert (flow["status"], flow["editing"]) == ("draft", True)
-
-
-async def test_a_flow_that_is_being_edited_does_not_run(client) -> None:
-    preset = await make_preset(client)
-    flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
-    token = (await client.post(f"/api/flows/{flow['id']}/review", json={})).json()["review_token"]
-
-    refused = await client.post(
-        f"/api/flows/{flow['id']}/start", json={"review_token": token, "run_values": {}}
-    )
-
-    assert refused.status_code == 409
-    assert refused.json()["error"]["code"] == "flow_editing"
-    assert refused.json()["error"]["message"] == "Press Done before running this flow."
-
-
-async def test_turning_editing_off_makes_a_flow_runnable(client, services) -> None:
+async def test_a_draft_runs_without_being_closed_for_changes_first(client, services) -> None:
     preset = await make_cypress(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
 
-    ready = (await client.patch(f"/api/flows/{flow['id']}", json={"editing": False})).json()
     started = await start_reviewed(client, flow["id"])
     await services.supervisor.wait(flow["id"])
 
-    assert (ready["status"], ready["editing"]) == ("draft", False)
     assert started.status_code == 200
+    assert "editing" not in started.json()
 
 
-async def test_a_step_is_not_added_to_a_flow_that_is_not_being_edited(client) -> None:
+async def test_a_draft_can_always_be_changed(client) -> None:
     preset = await make_preset(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
-    await client.patch(f"/api/flows/{flow['id']}", json={"editing": False})
+    step = f"/api/flows/{flow['id']}/steps/{flow['steps'][0]['id']}"
 
-    added = await client.post(f"/api/flows/{flow['id']}/steps", json={"preset_id": preset["id"]})
-    moved = await client.patch(
-        f"/api/flows/{flow['id']}/steps/{flow['steps'][0]['id']}", json={"condition": "always"}
-    )
-    reordered = await client.patch(
-        f"/api/flows/{flow['id']}/steps/{flow['steps'][0]['id']}", json={"position": 0}
-    )
-    removed = await client.delete(f"/api/flows/{flow['id']}/steps/{flow['steps'][0]['id']}")
+    changes = [
+        await client.post(f"/api/flows/{flow['id']}/steps", json={"preset_id": preset["id"]}),
+        await client.patch(step, json={"condition": "always"}),
+        await client.patch(step, json={"position": 1}),
+        await client.patch(f"/api/flows/{flow['id']}", json={"name": "Something else"}),
+        await client.delete(step),
+    ]
 
-    for refused in (added, moved, reordered, removed):
-        assert refused.status_code == 409
-        assert refused.json()["error"]["code"] == "flow_not_editing"
+    assert [change.status_code for change in changes] == [200, 200, 200, 200, 200]
 
 
 async def test_a_saved_flow_holds_each_steps_job_condition_and_values_in_order(client) -> None:
@@ -219,15 +195,6 @@ async def test_a_flow_taken_from_a_saved_flow_starts_with_its_values(client) -> 
     assert next(item for item in kept if item["id"] == kept_id)["steps"][0]["run_values"] == {
         "FOLIO_BRANCH": "main"
     }
-
-
-async def test_a_flow_that_is_not_being_edited_is_not_renamed(client) -> None:
-    flow = (await client.post("/api/flows", json={})).json()
-    await client.patch(f"/api/flows/{flow['id']}", json={"editing": False})
-
-    refused = await client.patch(f"/api/flows/{flow['id']}", json={"name": "Something else"})
-
-    assert refused.json()["error"]["code"] == "flow_not_editing"
 
 
 async def test_two_flows_on_the_board_cannot_share_a_name(client) -> None:
@@ -288,7 +255,6 @@ async def test_a_flow_is_duplicated_with_a_free_name_and_open_to_change(client) 
     again = (await client.post(f"/api/flows/{flow['id']}/duplicate")).json()
 
     assert (copy["name"], again["name"]) == ("Nightly copy", "Nightly copy 2")
-    assert copy["editing"] is True
     assert [step["preset_id"] for step in copy["steps"]] == [preset["id"]]
     assert [step["state"] for step in copy["steps"]] == ["planned"]
     # A copy is a thing of its own: saving it cannot overwrite the template.
@@ -324,27 +290,24 @@ async def test_a_copy_of_a_copy_counts_instead_of_stacking_the_word(client) -> N
     ]
 
 
-async def test_a_flow_that_started_is_not_renamed_or_reopened(client, services, jenkins) -> None:
+async def test_a_flow_that_started_is_not_renamed(client, services, jenkins) -> None:
     jenkins.building = True
     preset = await make_cypress(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
     await start_reviewed(client, flow["id"])
 
     renamed = await client.patch(f"/api/flows/{flow['id']}", json={"name": "Something else"})
-    reopened = await client.patch(f"/api/flows/{flow['id']}", json={"editing": True})
 
     # The board offers no rename here either; the two agree.
     assert renamed.json()["error"]["code"] == "flow_started"
-    assert reopened.json()["error"]["code"] == "flow_started"
     jenkins.building = False
     await services.supervisor.wait(flow["id"])
 
 
-async def test_a_flow_that_is_ready_still_takes_the_values_asked_at_launch(client) -> None:
+async def test_a_draft_takes_the_values_asked_at_launch_and_a_condition(client) -> None:
     preset = await make_preset(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
     step = flow["steps"][0]["id"]
-    await client.patch(f"/api/flows/{flow['id']}", json={"editing": False})
 
     # A value asked at launch belongs to this run, not to the shape of the flow.
     filled = await client.patch(
@@ -356,7 +319,7 @@ async def test_a_flow_that_is_ready_still_takes_the_values_asked_at_launch(clien
 
     assert filled.status_code == 200
     assert filled.json()["steps"][0]["run_values"]["FOLIO_BRANCH"] == "X-1"
-    assert moved.json()["error"]["code"] == "flow_not_editing"
+    assert moved.json()["steps"][0]["condition"] == "always"
 
 
 async def test_run_again_from_history_does_not_land_on_a_name_in_use(client, services) -> None:
@@ -723,6 +686,99 @@ async def test_starting_a_flow_sends_the_reviewed_values_once(client, services, 
     assert finished["result"] == "SUCCESS"
 
 
+def submits(jenkins: FakeJenkins) -> int:
+    return sum(1 for call in jenkins.calls if call[1].endswith("/buildWithParameters"))
+
+
+def frozen(services, flow_id: str) -> list[bool]:
+    _, meta = services.flows.get(flow_id)
+    return [step.frozen for _, step in sorted(meta.steps.items())]
+
+
+async def test_a_step_moved_while_start_reads_jenkins_stops_the_start(
+    client, services, jenkins
+) -> None:
+    first, second = await make_preset(client), await make_cypress(client)
+    flow = (
+        await client.post(
+            "/api/flows", json={"steps": [{"preset_id": first["id"]}, {"preset_id": second["id"]}]}
+        )
+    ).json()
+    run_values = {flow["steps"][0]["id"]: {"FOLIO_BRANCH": "example-feature"}}
+    token = (await client.post(f"/api/flows/{flow['id']}/review", json={})).json()["review_token"]
+    jenkins.on_definitions = lambda: services.flows.move_step(flow["id"], 1, 0)
+
+    refused = await client.post(
+        f"/api/flows/{flow['id']}/start", json={"run_values": run_values, "review_token": token}
+    )
+
+    assert refused.status_code == 409, refused.json()
+    assert refused.json()["error"]["code"] == "flow_changed", refused.json()
+    assert submits(jenkins) == 0
+    assert frozen(services, flow["id"]) == [False, False]
+
+
+async def test_a_step_moved_while_confirm_reads_jenkins_releases_nothing(
+    client, services, jenkins
+) -> None:
+    jenkins.building = True
+    first, second = await make_cypress(client), await make_preset(client)
+    flow = (await client.post("/api/flows", json={"steps": [{"preset_id": first["id"]}]})).json()
+    await start_reviewed(client, flow["id"])
+    for preset in (first, second):
+        added = await client.post(
+            f"/api/flows/{flow['id']}/steps", json={"preset_id": preset["id"]}
+        )
+    asked = {added.json()["steps"][2]["id"]: {"FOLIO_BRANCH": "example-feature"}}
+    review = await client.post(f"/api/flows/{flow['id']}/review", json={"scope": "held"})
+    jenkins.on_definitions = lambda: services.flows.move_step(flow["id"], 2, 1)
+
+    refused = await client.post(
+        f"/api/flows/{flow['id']}/confirm",
+        json={"run_values": asked, "review_token": review.json()["review_token"]},
+    )
+
+    assert refused.status_code == 409, refused.json()
+    assert refused.json()["error"]["code"] == "flow_changed", refused.json()
+    assert frozen(services, flow["id"])[1:] == [False, False]
+    jenkins.building = False
+    await client.post(f"/api/flows/{flow['id']}/stop", json={"abort_current": False})
+    await services.supervisor.wait(flow["id"])
+    steps = (await listed(client, "flows", flow["id"]))["steps"]
+    assert [step["state"] for step in steps[1:]] == ["planned", "planned"]
+
+
+async def test_a_step_moved_while_resume_reads_jenkins_resumes_nothing(
+    client, services, jenkins
+) -> None:
+    first, second = await make_cypress(client), await make_preset(client)
+    jenkins.result = "FAILURE"
+    flow = (
+        await client.post(
+            "/api/flows",
+            json={"steps": [{"preset_id": first["id"]}] * 2 + [{"preset_id": second["id"]}]},
+        )
+    ).json()
+    await start_reviewed(
+        client, flow["id"], {flow["steps"][2]["id"]: {"FOLIO_BRANCH": "example-feature"}}
+    )
+    await services.supervisor.wait(flow["id"])
+    assert (await listed(client, "flows", flow["id"]))["failed_at_position"] == 1
+    review = await client.post(
+        f"/api/flows/{flow['id']}/review", json={"scope": "resume", "from_position": 1}
+    )
+    jenkins.on_definitions = lambda: services.flows.move_step(flow["id"], 2, 1)
+
+    refused = await client.post(
+        f"/api/flows/{flow['id']}/resume",
+        json={"from_position": 1, "review_token": review.json()["review_token"]},
+    )
+
+    assert refused.status_code == 409, refused.json()
+    assert refused.json()["error"]["code"] == "flow_changed", refused.json()
+    assert submits(jenkins) == 1
+
+
 async def test_a_started_flow_cannot_be_started_again(client, services) -> None:
     preset = await make_cypress(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
@@ -775,22 +831,17 @@ async def test_a_finished_flow_can_be_cleared_from_the_board_but_stays_in_histor
     assert [(item["id"], item["cleared"]) for item in history] == [(flow["id"], True)]
 
 
-async def test_run_again_gives_a_copy_that_is_ready_and_edit_one_that_is_open(
-    client, services
-) -> None:
+async def test_run_again_gives_a_draft_copy_each_time(client, services) -> None:
     preset = await make_cypress(client)
     flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
     await start_reviewed(client, flow["id"])
     await services.supervisor.wait(flow["id"])
 
     ready = (await client.post(f"/api/flows/{flow['id']}/rerun")).json()
-    # The pencil on the same ended run: what History still shows after Run again.
-    open_again = (
-        await client.post(f"/api/flows/{flow['id']}/rerun", json={"editing": True})
-    ).json()
+    # The same ended run again: what History still shows after Run again.
+    open_again = (await client.post(f"/api/flows/{flow['id']}/rerun")).json()
 
-    assert (ready["status"], ready["editing"]) == ("draft", False)
-    assert (open_again["status"], open_again["editing"]) == ("draft", True)
+    assert (ready["status"], open_again["status"]) == ("draft", "draft")
     assert open_again["name"] != ready["name"]
 
 
@@ -842,7 +893,7 @@ async def test_a_flow_that_ended_keeps_its_name(client, services) -> None:
 
 
 async def test_run_again_takes_a_saved_job_that_changed_or_is_gone(client, services) -> None:
-    """Opening a flow that ended for editing is how such a step is replaced, so it never refuses."""
+    """A copy of a flow that ended is how such a step is replaced, so it never refuses."""
     changed = await make_preset(
         client,
         name="edev rancher",
@@ -1003,7 +1054,7 @@ async def test_run_again_keeps_the_original_until_the_copy_is_reviewed(
     copy = (await client.post(f"/api/flows/{flow['id']}/rerun", json={"keep_source": True})).json()
 
     assert copy["name"] == "Nightly copy"
-    assert (copy["status"], copy["editing"]) == ("draft", False)
+    assert copy["status"] == "draft"
     assert (await listed(client, "flows", flow["id"]))["cleared"] is False
     # A failed review leaves a cancellable draft, with its original visible.
     jenkins.unreachable = True

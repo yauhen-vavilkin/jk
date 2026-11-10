@@ -31,7 +31,6 @@ import {
 } from "./headerState";
 
 export const STOP_FIRST = "Stop the flow first";
-export const RUN_NEEDS_READY = "Press Done to run";
 export const UNREACHABLE = "Jenkins is unreachable";
 // A draft never ran, so it is gone; a flow that ran leaves only the board.
 export const REMOVE_DRAFT = "Delete this draft. History does not keep it.";
@@ -83,8 +82,8 @@ export default function FlowHeader({
   onReviewHeld: () => void;
   /** The same flow as a fresh copy, ready to run; what ran goes to History. */
   onRunAgain: () => void;
-  /** Turns editing on or off. On a flow that ended it replaces it with a copy to change. */
-  onEdit: (editing: boolean) => void;
+  /** On a flow that ended, replaces it with a copy to change. */
+  onEdit: () => void;
   /** A second flow with the same steps, under a free name. */
   onDuplicate: () => void;
   onPin: (pinned: boolean) => void;
@@ -171,7 +170,7 @@ export default function FlowHeader({
           />
         ) : (
           <h2 className="flex min-w-0 font-semibold">
-            {flow.editing ? (
+            {flow.status === "draft" ? (
               <button
                 type="button"
                 title="Rename"
@@ -182,7 +181,7 @@ export default function FlowHeader({
                 {flow.name}
               </button>
             ) : (
-              // A flow keeps the name it was built, or ran, under: editing renames it.
+              // A flow keeps the name it ran under; only a draft is renamed.
               <span className="truncate" title={flow.name}>
                 {flow.name}
               </span>
@@ -249,13 +248,13 @@ export default function FlowHeader({
         ) : (
           <>
             {flow.status === "draft" &&
-              (!flow.editing && unfilled > 0 ? (
+              (unfilled > 0 ? (
                 // Opens the first step with a value still empty.
                 // Filling asks Jenkins for nothing, so it stays on when Jenkins is away.
                 <PrimaryButton onClick={() => onFillNext?.()} title={fillNextTitle(nextToFill)}>
                   {fillLabel(unfilled)}
                 </PrimaryButton>
-              ) : !flow.editing && firstChanged ? (
+              ) : firstChanged ? (
                 // Filled, but a saved job changed in Jenkins: it leads to the first one.
                 <PrimaryButton
                   onClick={() => navigate(`/library/${firstChanged.preset_id}`)}
@@ -264,12 +263,11 @@ export default function FlowHeader({
                   {reviewJobsLabel(changed.length)}
                 </PrimaryButton>
               ) : (
-                // Off while the flow is being edited; the title says why.
                 <PrimaryButton
                   onClick={onReview}
-                  disabled={!canReview || flow.editing}
+                  disabled={!canReview}
                   focusable
-                  title={flow.editing ? RUN_NEEDS_READY : canReview ? undefined : UNREACHABLE}
+                  title={canReview ? undefined : UNREACHABLE}
                 >
                   Run
                 </PrimaryButton>
@@ -313,18 +311,15 @@ export default function FlowHeader({
                 Resume from step {flow.failed_at_position + 1}
               </SecondaryButton>
             )}
-            {/* Editing asks Jenkins for nothing, so it stays on when Jenkins is away. */}
-            {(flow.status === "draft" || hasEnded(flow)) && (
+            {/* A copy asks Jenkins for nothing, so it stays on when Jenkins is away. */}
+            {hasEnded(flow) && (
               <IconButton
                 icon={Pencil}
-                // On a draft it is a switch, and its word says where the next click
-                // goes; on a flow that ended it makes a copy in its place.
-                label={flow.editing ? "Done" : "Edit"}
-                title={hasEnded(flow) ? EDIT_ENDED : undefined}
-                active={flow.editing}
+                label="Edit"
+                title={EDIT_ENDED}
                 quiet
                 disabled={busy}
-                onClick={() => onEdit(!flow.editing)}
+                onClick={onEdit}
               />
             )}
             <IconButton

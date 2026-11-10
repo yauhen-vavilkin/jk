@@ -39,6 +39,6 @@ it("opens the returned copy for review without waiting for another flow-list req
   render(<QueryClientProvider client={new QueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
   fireEvent.click(await screen.findByRole("button", { name: "Run again" }));
   expect(await screen.findByText("Nightly copy from original")).toBeInTheDocument();
-  expect(post).toHaveBeenCalledWith("/flows/original/rerun", { editing: false, keep_source: true });
+  expect(post).toHaveBeenCalledWith("/flows/original/rerun", { keep_source: true });
   expect(get).toHaveBeenCalledTimes(1);
 });

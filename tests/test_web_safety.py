@@ -276,8 +276,6 @@ async def test_a_start_without_the_review_token_is_refused(client, services, jen
     job = await saved_job(client, CREATE, {"CLUSTER": fixed("a")})
     flow_id = await flow_of(client, {"preset_id": job})
 
-    await client.patch(f"/api/flows/{flow_id}", json={"editing": False})
-
     without = await client.post(f"/api/flows/{flow_id}/start", json={})
     wrong = await client.post(f"/api/flows/{flow_id}/start", json={"review_token": "guess"})
     await settle(services, flow_id)
@@ -285,18 +283,6 @@ async def test_a_start_without_the_review_token_is_refused(client, services, jen
     assert without.status_code == 422
     # Named, so this cannot quietly start refusing for some other reason.
     assert wrong.json()["error"]["code"] == "review_required"
-    assert posts(jenkins) == []
-
-
-async def test_a_flow_that_is_still_being_edited_sends_nothing(client, services, jenkins) -> None:
-    job = await saved_job(client, CREATE, {"CLUSTER": fixed("a")})
-    flow_id = await flow_of(client, {"preset_id": job})
-    token = (await client.post(f"/api/flows/{flow_id}/review", json={})).json()["review_token"]
-
-    started = await client.post(f"/api/flows/{flow_id}/start", json={"review_token": token})
-    await settle(services, flow_id)
-
-    assert started.json()["error"]["code"] == "flow_editing"
     assert posts(jenkins) == []
 
 
@@ -395,7 +381,6 @@ async def test_an_edit_after_the_review_needs_a_new_review(client, services, jen
             "params": {"CLUSTER": fixed("example-cluster"), "NAMESPACE": fixed("OTHER-ns")},
         },
     )
-    await client.patch(f"/api/flows/{flow_id}", json={"editing": False})
     started = await client.post(f"/api/flows/{flow_id}/start", json={"review_token": token})
     await settle(services, flow_id)
 
@@ -639,7 +624,6 @@ async def test_a_condition_changed_after_the_review_needs_a_new_review(
     token = (await client.post(f"/api/flows/{flow_id}/review", json={})).json()["review_token"]
 
     await client.patch(f"/api/flows/{flow_id}/steps/{flow_id}:1", json={"condition": "always"})
-    await client.patch(f"/api/flows/{flow_id}", json={"editing": False})
     started = await client.post(f"/api/flows/{flow_id}/start", json={"review_token": token})
     await settle(services, flow_id)
 
@@ -733,10 +717,8 @@ async def test_a_resume_carries_the_values_asked_for_held_steps(tmp_path: Path, 
     assert jenkins.bodies[1] == b"FOLIO_BRANCH=picked"
 
 
-async def test_editing_turned_back_on_during_the_review_sends_nothing(
-    tmp_path: Path, jenkins
-) -> None:
-    """The review awaits Jenkins; the flow may be reopened for changing while it does."""
+async def test_a_step_added_during_the_review_sends_nothing(tmp_path: Path, jenkins) -> None:
+    """The review awaits Jenkins; the flow may be changed while it does."""
     entered, release, armed = asyncio.Event(), asyncio.Event(), asyncio.Event()
 
     async def hold_the_review(request: httpx.Request) -> httpx.Response:
@@ -752,16 +734,17 @@ async def test_editing_turned_back_on_during_the_review_sends_nothing(
     async with client_for(services) as client:
         job = await saved_job(client, CREATE, {"CLUSTER": fixed("a")})
         flow_id = await flow_of(client, {"preset_id": job})
-        await client.patch(f"/api/flows/{flow_id}", json={"editing": False})
         token = (await client.post(f"/api/flows/{flow_id}/review", json={})).json()["review_token"]
 
-        # Editing goes back on while the server is still waiting on Jenkins.
+        # A step goes in front while the server is still waiting on Jenkins.
         armed.set()
         starting = asyncio.ensure_future(
             client.post(f"/api/flows/{flow_id}/start", json={"review_token": token})
         )
         await asyncio.wait_for(entered.wait(), 2)
-        reopened = await client.patch(f"/api/flows/{flow_id}", json={"editing": True})
+        reopened = await client.post(
+            f"/api/flows/{flow_id}/steps", json={"preset_id": job, "position": 0}
+        )
         release.set()
         started = await asyncio.wait_for(starting, 5)
         await settle(services, flow_id)
@@ -769,6 +752,6 @@ async def test_editing_turned_back_on_during_the_review_sends_nothing(
     services.store.close()
 
     assert reopened.status_code == 200
-    assert started.json()["error"]["code"] == "flow_editing"
+    assert started.json()["error"]["code"] == "flow_changed"
     assert posts(jenkins) == []
     assert flow["status"] == "draft"

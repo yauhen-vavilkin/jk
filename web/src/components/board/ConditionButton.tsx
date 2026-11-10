@@ -1,6 +1,6 @@
 // When does this step start? The answer lives on the card it belongs to, before
 // STEP N. The icon always shows; the click opens the step's condition menu only
-// while the step can still change: in a draft being edited, or on a held step.
+// while the step can still change: in a draft, or on a held step.
 import { useDndContext } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
 

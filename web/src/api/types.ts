@@ -164,7 +164,6 @@ export interface Flow {
   /** Kept at the top of the board. */
   pinned: boolean;
   /** The user is still building it: it can be changed, but not run. Only a draft is. */
-  editing: boolean;
   /** What is left to run, from Jenkins' estimates; null unless every step left has one. */
   estimate_ms: number | null;
 }
@@ -258,4 +257,7 @@ export interface RepairRequest {
 
 export interface StepCreate {
   preset_id: string;
+  /** Given only when a removed step is put back as it was. */
+  condition?: Condition;
+  run_values?: Record<string, string>;
 }

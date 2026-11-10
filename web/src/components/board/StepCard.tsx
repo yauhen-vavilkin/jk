@@ -4,9 +4,11 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { ExternalLink, X } from "lucide-react";
+import { useState } from "react";
 
 import type { Condition, Flow, Preset, Step } from "@/api/types";
 import CardValuesBlock from "@/components/ui/CardValuesBlock";
+import InlineConfirm from "@/components/ui/InlineConfirm";
 import { DestructiveMark } from "@/components/ui/DestructiveMark";
 import StatusIcon from "@/components/ui/StatusIcon";
 import { cardValues, stepValues } from "@/lib/cardValues";
@@ -69,6 +71,9 @@ export function StepCardBody({
   const unfilled = planned ? asked.filter((name) => !(step.run_values[name] ?? "").trim()) : [];
   const empty = unfilled.length;
   const drifted = planned && Boolean(preset?.drift);
+  // A draft takes a removed step back with Undo; a flow that started may reach
+  // that place at any moment, so there the card asks first.
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <>
@@ -108,7 +113,8 @@ export function StepCardBody({
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
-                onRemove?.();
+                if (draft) onRemove?.();
+                else setConfirming(true);
               }}
               className="-mr-[5px] inline-flex h-6 w-6 flex-none items-center justify-center text-dim transition-colors duration-150 hover:text-text"
             >
@@ -126,6 +132,27 @@ export function StepCardBody({
         </span>
         {step.destructive && <DestructiveMark className="ml-auto flex-none" />}
       </div>
+
+      {confirming && removable && (
+        // Inside the card, so a click or a drag here neither opens nor moves it.
+        <span
+          className="flex"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <InlineConfirm
+            question={`Remove step ${displayPosition + 1}?`}
+            confirmLabel="Remove"
+            cancelLabel="Keep"
+            onConfirm={() => {
+              setConfirming(false);
+              onRemove?.();
+            }}
+            onCancel={() => setConfirming(false)}
+          />
+        </span>
+      )}
 
       {/* The card is one size whatever it holds: the values give way, the footer stays. */}
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -247,7 +274,7 @@ export default function StepCard({
   const movable = step.state === "planned" && canChangeSteps(flow);
   // While a flow is edited a card is also a place: a saved job dropped on it
   // takes its number, and this card and the ones after it move aside.
-  const place = flow.editing && movable;
+  const place = flow.status === "draft" && movable;
   const sortable = useSortable({
     id: step.id,
     disabled: !movable,

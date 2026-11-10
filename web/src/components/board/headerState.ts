@@ -5,7 +5,7 @@ import type { StatusIconName } from "@/components/ui/StatusIcon";
 import { elapsed, roundMinutes } from "@/lib/time";
 
 interface HeaderState {
-  /** `editing`: the user is still building it. `ready`: built, and waiting to run. */
+  /** `ready`: a draft, waiting to run. */
   glyph: StatusIconName;
   word: string;
   /** The colour of the glyph and of the word. */
@@ -117,17 +117,9 @@ export function headerStateOf(flow: Flow, unfilled = 0, changed = 0): HeaderStat
             pulse: false,
           };
     default:
-      // A draft is being built, cannot run yet, or is ready to run, and it says
-      // which; the button beside it says what is missing. Whether it is kept as a
-      // saved flow is the bookmark button's to say.
-      if (flow.editing) {
-        return {
-          glyph: "editing",
-          word: "EDITING",
-          tone: "text-text",
-          pulse: false,
-        };
-      }
+      // A draft cannot run yet, or is ready to run, and it says which; the button
+      // beside it says what is missing. Whether it is kept as a saved flow is the
+      // bookmark button's to say.
       return {
         glyph: "ready",
         word: unfilled > 0 || changed > 0 ? "NOT READY" : "READY",

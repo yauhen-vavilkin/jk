@@ -31,7 +31,6 @@ import {
   useLinkBuild,
   usePatchStep,
   usePinFlow,
-  useSetEditing,
   useDuplicateFlow,
   useRerunFlow,
   usePresets,
@@ -101,9 +100,9 @@ const pointerX = (event: DragMoveEvent | DragEndEvent) => {
 
 const flowOf = (over: string) => (over.startsWith("flow:") ? over.slice(5) : null);
 
-/** The step number a saved job takes in a flow: its own place only while the flow is edited. */
+/** The step number a saved job takes in a flow: its own place only in a draft. */
 const placeIn = (flow: Flow, index: number | undefined) =>
-  flow.editing && index !== undefined && index < flow.steps.length ? index : undefined;
+  flow.status === "draft" && index !== undefined && index < flow.steps.length ? index : undefined;
 
 type Modal =
   | {
@@ -137,7 +136,6 @@ export default function Board() {
   const renameFlow = useRenameFlow();
   const rerunFlow = useRerunFlow();
   const pinFlow = usePinFlow();
-  const setEditing = useSetEditing();
   const duplicateFlow = useDuplicateFlow();
   const clearFlow = useClearFlow();
   const deleteFlow = useDeleteFlow();
@@ -367,7 +365,7 @@ export default function Board() {
     if (flow && hasEnded(flow)) {
       // A card dropped on a flow that ended opens a copy of it to change, in its
       // place; what ran is in History.
-      const draft = await rerunFlow.mutateAsync({ flowId, editing: true });
+      const draft = await rerunFlow.mutateAsync({ flowId, edit: true });
       return addStep.mutateAsync({ flowId: draft.id, step: { preset_id: presetId } });
     }
     const position = flow ? placeIn(flow, index) : undefined;
@@ -382,7 +380,7 @@ export default function Board() {
     // The same as for one saved job: a flow that ended opens a copy to change.
     const target =
       onto && hasEnded(onto)
-        ? (await rerunFlow.mutateAsync({ flowId: onto.id, editing: true })).id
+        ? (await rerunFlow.mutateAsync({ flowId: onto.id, edit: true })).id
         : (flowId ?? undefined);
     let after: Flow;
     try {
@@ -483,19 +481,60 @@ export default function Board() {
     );
   }
 
-  /** Removing the last step of a flow being built removes the flow, as Remove does. */
+  /** The Undo line for a change to a flow's steps; a draft removed before it is deleted now. */
+  function offerStepUndo(text: string, undo: () => void) {
+    window.clearTimeout(noticeTimer.current);
+    setNotice(null);
+    deleteNow();
+    offerUndo(text, undo);
+  }
+
+  /**
+   * Removing the last step of a draft removes the flow, as Remove does. A step
+   * of a draft goes at once and Undo puts it back as it was; a step of a flow
+   * that started was confirmed on its card and has no Undo, because the flow
+   * may reach that place while the line is shown.
+   */
   async function removePlannedStep(stepId: string) {
     const flow = visible.find((item) => item.steps.some((step) => step.id === stepId));
-    if (!flow) return;
-    if (flow.editing && flow.steps.length === 1) return onDelete(flow);
+    const step = flow?.steps.find((item) => item.id === stepId);
+    if (!flow || !step) return;
+    const draft = flow.status === "draft";
+    if (draft && flow.steps.length === 1) return onDelete(flow);
     await removeStep.mutateAsync({ flowId: flow.id, stepId });
+    if (!draft) return;
+    offerStepUndo(`Removed step ${step.position + 1} "${step.preset_name}"`, () =>
+      addStep.mutate(
+        {
+          flowId: flow.id,
+          step: { preset_id: step.preset_id, condition: step.condition, run_values: step.run_values },
+          position: step.position,
+        },
+        said,
+      ),
+    );
+  }
+
+  /** A step moved to another place; Undo moves it back, if that place is still free to change. */
+  async function moveStep(flow: Flow, step: Step, to: number) {
+    const after = await patchStep.mutateAsync({ flowId: flow.id, stepId: step.id, patch: { position: to } });
+    const moved = after.steps.find((item) => item.position === to);
+    if (!moved) return;
+    // Focus follows the card to its new place.
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>(`[data-step-id="${moved.id}"]`)?.focus({ preventScroll: true }),
+    );
+    offerStepUndo(`Moved "${step.preset_name}" to step ${to + 1}`, () =>
+      patchStep.mutate({ flowId: flow.id, stepId: moved.id, patch: { position: step.position } }, said),
+    );
   }
 
   async function movePlannedStep(stepId: string, overId: string) {
     const flow = visible.find((item) => item.steps.some((step) => step.id === stepId));
-    const target = flow?.steps.find((step) => step.id === overId);
-    if (!flow || !target) return;
-    await patchStep.mutateAsync({ flowId: flow.id, stepId, patch: { position: target.position } });
+    const step = flow?.steps.find((item) => item.id === stepId);
+    const target = flow?.steps.find((item) => item.id === overId);
+    if (!flow || !step || !target) return;
+    await moveStep(flow, step, target.position);
   }
 
   return (
@@ -623,12 +662,9 @@ export default function Board() {
                 onRename={(name) => renameFlow.mutate({ flowId: flow.id, name }, said)}
                 onPin={(pinned) => pinFlow.mutate({ flowId: flow.id, pinned }, said)}
                 insertIndex={insertAt?.flowId === flow.id ? insertAt.index : null}
-                busy={rerunFlow.isPending || duplicateFlow.isPending || setEditing.isPending}
-                onEdit={(editing) => {
-                  // A flow that ended is a record: it is not reopened, a copy of it is.
-                  if (hasEnded(flow)) rerunFlow.mutate({ flowId: flow.id, editing: true }, said);
-                  else setEditing.mutate({ flowId: flow.id, editing }, said);
-                }}
+                busy={rerunFlow.isPending || duplicateFlow.isPending}
+                // A flow that ended is a record: it is not reopened, a copy of it is.
+                onEdit={() => rerunFlow.mutate({ flowId: flow.id, edit: true }, said)}
                 onDuplicate={() =>
                   duplicateFlow.mutate(
                     { flowId: flow.id },
@@ -687,19 +723,7 @@ export default function Board() {
                   removePlannedStep(step.id).then(said.onSuccess, said.onError)
                 }
                 onMoveStep={(step, position) =>
-                  patchStep.mutate(
-                    { flowId: flow.id, stepId: step.id, patch: { position } },
-                    {
-                      ...said,
-                      // Focus follows the card to its new place.
-                      onSuccess: () => {
-                        said.onSuccess();
-                        requestAnimationFrame(() =>
-                          document.querySelector<HTMLElement>(`[data-step-id="${step.id}"]`)?.focus(),
-                        );
-                      },
-                    },
-                  )
+                  moveStep(flow, step, position).then(said.onSuccess, said.onError)
                 }
                 onAddStep={(tile) =>
                   setPicker((open) => (open?.anchor === tile ? null : { flowId: flow.id, anchor: tile }))

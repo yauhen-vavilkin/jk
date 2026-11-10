@@ -90,8 +90,6 @@ async def instantiate(
         _, meta = found
         if meta.status not in ACTIVE_FLOW_STATUSES:
             raise errors.conflict("flow_finished", "This flow has finished; start a new one.")
-        if meta.status is FlowStatus.DRAFT and not meta.editing:
-            raise errors.conflict("flow_not_editing", "Turn editing on to change this flow.")
         flow_id = body.flow_id
         started = meta.status is not FlowStatus.DRAFT
         running = meta.status is FlowStatus.RUNNING
@@ -114,12 +112,10 @@ async def instantiate(
         if services.supervisor.is_sending(flow_id):
             raise errors.flow_sending()
     else:
-        # It was built once already, so it lands ready to run, not open to change.
         # The board named it, so a second copy takes the next free name.
         flow_id = services.flows.create(
             name=naming.free_name(template.name, services.flows.board_names()),
             saved_flow_id=template.id,
-            editing=False,
         )
 
     for step, preset in zip(template.steps, presets, strict=True):

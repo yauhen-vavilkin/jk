@@ -211,9 +211,6 @@ class Flow(BaseModel):
     # The saved flow this flow is kept as, while that saved flow exists.
     saved_flow_id: str | None = None
     pinned: bool = False
-    # The user is still building this flow: it can be changed, but not run. Only
-    # a draft is ever being edited.
-    editing: bool = False
     # What is left to run, from Jenkins' estimates; null unless every step left has one.
     estimate_ms: int | None = None
 
@@ -239,15 +236,11 @@ class FlowPatch(BaseModel):
     name: str | None = None
     cleared: bool | None = None
     pinned: bool | None = None
-    #: Turns editing on or off. Only a draft takes it.
-    editing: bool | None = None
 
 
 class FlowRerun(BaseModel):
     #: Keep the original visible until the user successfully starts the reviewed copy.
     keep_source: bool = False
-    #: `Run again` wants the copy ready to run; the pencil wants it open to change.
-    editing: bool = False
 
 
 class StepPatch(BaseModel):

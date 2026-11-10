@@ -1,8 +1,8 @@
 // The icon beside a status word. Lucide, like everything that is pressed: a font's
 // check mark or circle looks different in every typeface, an icon does not.
-import { Check, Circle, CircleDashed, Pencil, Square, TriangleAlert } from "lucide-react";
+import { Check, Circle, CircleDashed, Square, TriangleAlert } from "lucide-react";
 
-export type StatusIconName = "check" | "running" | "alert" | "stopped" | "editing" | "ready";
+export type StatusIconName = "check" | "running" | "alert" | "stopped" | "ready";
 
 export default function StatusIcon({
   name,
@@ -25,8 +25,6 @@ export default function StatusIcon({
       return <TriangleAlert size={size} aria-hidden className={classes} />;
     case "stopped":
       return <Square size={size * 0.7} fill="currentColor" aria-hidden className={classes} />;
-    case "editing":
-      return <Pencil size={size} aria-hidden className={classes} />;
     // Built, and waiting to be run: an outline of what a running flow fills in.
     case "ready":
       return <CircleDashed size={size} aria-hidden className={classes} />;

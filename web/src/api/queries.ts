@@ -234,16 +234,16 @@ export function useDeleteFlow() {
   });
 }
 
-/** Run again keeps the original until reviewed start; edit replaces it immediately. */
+/** Run again keeps the original until reviewed start; a copy to edit replaces it immediately. */
 export function useRerunFlow() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ flowId, editing = false }: { flowId: string; editing?: boolean }) =>
-      api.post<Flow>(`/flows/${flowId}/rerun`, { editing, keep_source: !editing }),
-    onSuccess: (flow, { editing }) => {
+    mutationFn: ({ flowId, edit = false }: { flowId: string; edit?: boolean }) =>
+      api.post<Flow>(`/flows/${flowId}/rerun`, { keep_source: !edit }),
+    onSuccess: (flow, { edit }) => {
       putFlow(client, flow);
       // Run again needs only the returned copy. A stalled refetch must not delay review.
-      if (editing) return client.invalidateQueries({ queryKey: keys.flows });
+      if (edit) return client.invalidateQueries({ queryKey: keys.flows });
     },
   });
 }
@@ -252,13 +252,6 @@ export function useRerunFlow() {
 export function useDuplicateFlow() {
   return useFlowMutation(({ flowId }: { flowId: string }) =>
     api.post<Flow>(`/flows/${flowId}/duplicate`),
-  );
-}
-
-/** Turns editing on or off. Only a draft takes it. */
-export function useSetEditing() {
-  return useFlowMutation(({ flowId, editing }: { flowId: string; editing: boolean }) =>
-    api.patch<Flow>(`/flows/${flowId}`, { editing }),
   );
 }
 
