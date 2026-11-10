@@ -58,7 +58,10 @@ export interface Preset {
   job_path: string;
   job_url: string;
   destructive: boolean;
+  /** The values the card shows, as it shows them now. */
   summary_params: string[];
+  /** Someone chose them; otherwise they are the first four sent. */
+  summary_chosen: boolean;
   params: Record<string, ParamSetting>;
   definitions: ParamDefinition[];
   drift: Drift | null;

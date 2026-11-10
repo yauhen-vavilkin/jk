@@ -78,7 +78,7 @@ def _append(
         preset_name=preset.name,
         job_path=preset.job_path,
         destructive=preset.destructive,
-        summary_params=preset.summary_params,
+        summary_params=preset.card_names(),
         condition=Condition(step.condition),
         run_values=step.run_values,
         added_while_running=running,
@@ -122,7 +122,7 @@ def _copy_steps(services: Services, run, meta: FlowMeta, target_id: str) -> None
             preset_name=preset.name if preset else stored.job_name,
             job_path=preset.job_path if preset else stored.job_path,
             destructive=preset.destructive if preset else stored.destructive,
-            summary_params=preset.summary_params if preset else web_meta.summary_params,
+            summary_params=preset.card_names() if preset else web_meta.summary_params,
             condition=web_meta.condition,
             run_values=dict(web_meta.run_values),
         )

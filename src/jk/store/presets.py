@@ -22,14 +22,13 @@ from jk.store.coding import (
     string_list,
 )
 from jk.store.records import (
+    MAX_SUMMARY_PARAMS,
     DefinitionSnapshot,
     Drift,
     ParamSetting,
     Preset,
 )
 from jk.store.store import RunStore
-
-MAX_SUMMARY_PARAMS = 4
 
 #: A step still uses its saved job while it has not run yet, or is running, in a
 #: flow that can still get to it. A step skipped in a flow that ended never will.
@@ -86,6 +85,7 @@ class PresetStore:
         job_path: str,
         destructive: bool = False,
         summary_params: tuple[str, ...] = (),
+        summary_chosen: bool = False,
         params: dict[str, ParamSetting] | None = None,
         definitions: tuple[DefinitionSnapshot, ...] = (),
         drift: Drift | None = None,
@@ -96,8 +96,8 @@ class PresetStore:
         with self._store.transaction() as connection:
             connection.execute(
                 "INSERT INTO presets(id, name, operation, job_path, destructive, "
-                "summary_params, params, definition_snapshot, drift, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "summary_params, summary_chosen, params, definition_snapshot, drift, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     identifier,
                     name,
@@ -105,6 +105,7 @@ class PresetStore:
                     job_path,
                     1 if destructive else 0,
                     dump(list(summary_params[:MAX_SUMMARY_PARAMS])),
+                    int(summary_chosen),
                     params_to_json(params or {}),
                     definitions_to_json(definitions),
                     drift_to_json(drift),
@@ -122,6 +123,7 @@ class PresetStore:
         operation: str | None = None,
         destructive: bool | None = None,
         summary_params: tuple[str, ...] | None = None,
+        summary_chosen: bool | None = None,
         params: dict[str, ParamSetting] | None = None,
         definitions: tuple[DefinitionSnapshot, ...] | None = None,
     ) -> Preset:
@@ -129,7 +131,7 @@ class PresetStore:
         with self._store.transaction() as connection:
             connection.execute(
                 "UPDATE presets SET name = ?, operation = ?, destructive = ?, "
-                "summary_params = ?, params = ?, definition_snapshot = ?, "
+                "summary_params = ?, summary_chosen = ?, params = ?, definition_snapshot = ?, "
                 "updated_at = ? WHERE id = ?",
                 (
                     current.name if name is None else name,
@@ -142,6 +144,7 @@ class PresetStore:
                             ]
                         )
                     ),
+                    int(current.summary_chosen if summary_chosen is None else summary_chosen),
                     params_to_json(current.params if params is None else params),
                     definitions_to_json(
                         current.definitions if definitions is None else definitions
@@ -184,6 +187,7 @@ class PresetStore:
             job_path=row["job_path"],
             destructive=bool(row["destructive"]),
             summary_params=string_list(row["summary_params"]),
+            summary_chosen=bool(row["summary_chosen"]),
             params=params_from_json(row["params"]),
             definitions=definitions_from_json(row["definition_snapshot"]),
             drift=drift_from_json(row["drift"]),

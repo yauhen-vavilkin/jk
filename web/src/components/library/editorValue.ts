@@ -23,7 +23,7 @@ export function seedFrom(
       operation: preset.operation,
       destructive: preset.destructive,
       params: { ...preset.params },
-      summary: [...preset.summary_params],
+      summary: preset.summary_chosen ? [...preset.summary_params] : null,
     };
   }
   const params: Draft = {};
@@ -53,6 +53,13 @@ function sameSetting(a: Setting | undefined, b: Setting | undefined): boolean {
 function sameSummary(a: string[] | null, b: string[] | null): boolean {
   if (a === null || b === null) return a === b;
   return a.length === b.length && a.every((name, index) => name === b[index]);
+}
+
+/** The card's choice without the values that are no longer sent, as the server keeps it. */
+export function tidy(value: EditorValue): EditorValue {
+  if (value.summary === null) return value;
+  const sent = (name: string) => (value.params[name]?.mode ?? "default") !== "default";
+  return { ...value, summary: value.summary.filter(sent) };
 }
 
 /**

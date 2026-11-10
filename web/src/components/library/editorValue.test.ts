@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Preset } from "@/api/types";
-import { rebase, sameEditorValue, seedFrom, signatureOf, summaryToSend, type EditorValue } from "./editorValue";
+import { rebase, sameEditorValue, seedFrom, signatureOf, summaryToSend, tidy, type EditorValue } from "./editorValue";
 
 const value = (patch: Partial<EditorValue> = {}): EditorValue => ({
   name: "Nightly",
@@ -105,7 +105,7 @@ describe("a new saved job", () => {
 });
 
 describe("the values a card shows", () => {
-  const held = { summary_params: ["CLUSTER"] } as Preset;
+  const held = { summary_params: ["CLUSTER"], summary_chosen: true } as Preset;
 
   it("is not sent while nobody chose, or when it is the list the saved job holds", () => {
     expect(summaryToSend(value({ summary: null }), null)).toBeUndefined();
@@ -118,8 +118,10 @@ describe("the values a card shows", () => {
     expect(summaryToSend(value({ summary: ["CLUSTER"] }), null)).toEqual(["CLUSTER"]);
   });
 
-  it("starts from the saved job's list, and from none chosen for a new one", () => {
+  it("starts from the saved job's list once it was chosen, and from none chosen otherwise", () => {
     expect(seedFrom(held, "folder/job", []).summary).toEqual(["CLUSTER"]);
+    const automatic = { summary_params: ["CLUSTER"], summary_chosen: false } as Preset;
+    expect(seedFrom(automatic, "folder/job", []).summary).toBeNull();
     expect(seedFrom(null, "folder/job", []).summary).toBeNull();
   });
 
@@ -128,5 +130,16 @@ describe("the values a card shows", () => {
     const newer = value({ summary: ["NAMESPACE"] });
     expect(rebase(base, base, newer).summary).toEqual(["NAMESPACE"]);
     expect(rebase(base, value({ summary: [] }), newer).summary).toEqual([]);
+  });
+});
+
+describe("tidy", () => {
+  it("drops the values that are no longer sent from a chosen list, and leaves automatic alone", () => {
+    const left = value({
+      summary: ["CLUSTER", "NAMESPACE"],
+      params: { ...value().params, NAMESPACE: { mode: "default", value: null, last_value: null } },
+    });
+    expect(tidy(left).summary).toEqual(["CLUSTER"]);
+    expect(tidy(value()).summary).toBeNull();
   });
 });

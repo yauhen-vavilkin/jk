@@ -22,6 +22,7 @@ from jk.store.records import (
 )
 from jk.store.saved_flows import SavedFlowStore
 from jk.store.store import RunStore
+from jk.store.web_schema import ensure_web_schema
 
 
 def make_preset(presets: PresetStore, **overrides) -> object:
@@ -86,6 +87,30 @@ def test_summary_params_are_capped_at_four(store: RunStore) -> None:
     presets = PresetStore(store)
     saved = make_preset(presets, summary_params=("A", "B", "C", "D", "E"))
     assert saved.summary_params == ("A", "B", "C", "D")
+
+
+def test_a_choice_of_card_values_is_told_from_none_made(store: RunStore) -> None:
+    presets = PresetStore(store)
+    assert make_preset(presets).summary_chosen is False
+
+    chosen = make_preset(presets, summary_params=(), summary_chosen=True)
+    assert (chosen.summary_chosen, chosen.summary_params) == (True, ())
+    assert presets.update(chosen.id, name="renamed").summary_chosen is True
+    assert presets.update(chosen.id, summary_chosen=False).summary_chosen is False
+
+
+def test_a_database_made_before_the_choice_existed_reads_every_saved_job_as_automatic(
+    store: RunStore,
+) -> None:
+    presets = PresetStore(store)
+    saved = make_preset(presets, summary_params=("CLUSTER",))
+    # The table as it was before the column: the column is only ever added afterwards.
+    store.connection.execute("ALTER TABLE presets DROP COLUMN summary_chosen")
+
+    ensure_web_schema(store.connection)
+
+    assert presets.get(saved.id).summary_chosen is False
+    assert presets.get(saved.id).summary_params == ("CLUSTER",)
 
 
 def test_sent_values_omit_default_mode_and_take_the_run_value(store: RunStore) -> None:

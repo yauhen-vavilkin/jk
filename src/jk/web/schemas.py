@@ -65,7 +65,10 @@ class Preset(BaseModel):
     job_path: str
     job_url: str
     destructive: bool
+    #: The values the card shows, as it shows them now.
     summary_params: list[str]
+    #: Someone chose them; otherwise they are the first four sent.
+    summary_chosen: bool
     params: dict[str, ParamSetting]
     definitions: list[ParamDefinition]
     drift: Drift | None

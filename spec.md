@@ -58,8 +58,11 @@ job and nowhere else, and it lives in `.jk/runs.db`. It defines:
   `at launch` with a value typed for each run, or `default`, left to Jenkins;
 - the values its card shows: up to four of the values it sends, ticked in the
   Library's table; until someone ticks, the first four it sends in Jenkins'
-  order. A value that stops being sent leaves the card. A long address is
-  printed without its scheme and cut in the middle;
+  order, worked out whenever the card is drawn. Once someone has ticked, the
+  choice stays as ticked, an empty one included. A value that stops being sent
+  leaves the card, and returns to it if it is sent again. A step's card follows
+  its saved job's current choice, whether the step ran or not. A long address
+  is printed without its scheme and cut in the middle;
 - whether the action is destructive and needs its target named in review;
 - a snapshot of the Jenkins parameter definitions it was saved against.
 

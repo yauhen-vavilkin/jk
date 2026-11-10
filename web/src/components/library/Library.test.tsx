@@ -43,6 +43,7 @@ it("keeps unsaved edits until navigation is explicitly allowed", async () => {
     job_url: "",
     destructive: false,
     summary_params: [],
+    summary_chosen: false,
     params: {},
     definitions: [],
     drift: null,

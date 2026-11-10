@@ -18,6 +18,7 @@ const preset = (patch: Partial<Preset> = {}): Preset => ({
   job_url: "",
   destructive: false,
   summary_params: [],
+  summary_chosen: false,
   params: { CLUSTER: { mode: "ask", value: null, last_value: "old" } },
   definitions: [],
   drift: null,
@@ -260,6 +261,7 @@ describe("the values a card shows", () => {
   const names = ["A", "B", "C", "D", "E"];
   const many = preset({
     summary_params: ["A", "B", "C", "D"],
+    summary_chosen: true,
     params: Object.fromEntries(names.map((item) => [item, { mode: "fixed", value: item, last_value: null }])),
     definitions: names.map((item) => ({ name: item, type: "StringParameterDefinition", default: null, choices: null })),
   });
@@ -277,6 +279,36 @@ describe("the values a card shows", () => {
     expect(off(SAVE)).toBe(false);
     fireEvent.click(box("E"));
     expect(box("E")).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("keeps Jenkins' order whatever order the boxes are ticked in, so the saved copy is the same", () => {
+    const few = preset({ ...many, summary_chosen: true, summary_params: ["B", "C"] });
+    const { rerender } = render(editor({ preset: few, definitions: few.definitions }));
+
+    fireEvent.click(box("A"));
+    expect(off(SAVE)).toBe(false);
+
+    // What the server keeps: Jenkins' order.
+    const saved = preset({ ...few, summary_params: ["A", "B", "C"] });
+    rerender(editor({ preset: saved, definitions: saved.definitions }));
+    expect(off(SAVED)).toBe(true);
+  });
+
+  it("drops a ticked value from the list when it is set to default, so the saved copy is the same", () => {
+    const some = preset({ ...many, summary_chosen: true, summary_params: ["A", "B"] });
+    const { rerender } = render(editor({ preset: some, definitions: some.definitions }));
+
+    fireEvent.click(screen.getAllByRole("radio", { name: "default" })[1] as HTMLElement);
+    expect(screen.queryByRole("checkbox", { name: "Show B on the card" })).toBeNull();
+
+    const saved = preset({
+      ...some,
+      summary_params: ["A"],
+      // The server keeps the value the editor held.
+      params: { ...some.params, B: { mode: "default", value: "B", last_value: null } },
+    });
+    rerender(editor({ preset: saved, definitions: saved.definitions }));
+    expect(off(SAVED)).toBe(true);
   });
 
   it("offers no box for a value left to Jenkins", () => {

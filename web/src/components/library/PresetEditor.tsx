@@ -1,6 +1,5 @@
 // One saved job: its name, whether it is destructive, and what JK sends for
-// every parameter Jenkins defines. What it puts on a card is derived by the
-// server from what is sent, so nothing here chooses it.
+// every parameter Jenkins defines, and which of the sent values its card shows.
 import { Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -12,7 +11,7 @@ import InlineConfirm from "@/components/ui/InlineConfirm";
 import SaveButton from "@/components/ui/SaveButton";
 import DriftBanner from "./DriftBanner";
 import ParamTable from "./ParamTable";
-import { rebase, sameEditorValue, seedFrom, signatureOf, type EditorValue } from "./editorValue";
+import { rebase, sameEditorValue, seedFrom, signatureOf, tidy, type EditorValue } from "./editorValue";
 import { onCard, repairRequest, rowsOf, saveBlocker } from "./paramRows";
 
 /** Why a new saved job has no parameters yet. */
@@ -109,6 +108,7 @@ export default function PresetEditor({
     job_url: "",
     destructive: value.destructive,
     summary_params: value.summary ?? [],
+    summary_chosen: value.summary !== null,
     params: value.params,
     definitions,
     drift: null,
@@ -119,27 +119,30 @@ export default function PresetEditor({
   const rows = rowsOf(shown, value.params);
 
   const change = (name: string, patch: Partial<ParamSetting>) =>
-    setValue((current) => ({
-      ...current,
-      params: {
-        ...current.params,
-        [name]: { ...(current.params[name] ?? { mode: "default", value: null, last_value: null }), ...patch },
-      },
-    }));
+    setValue((current) =>
+      tidy({
+        ...current,
+        params: {
+          ...current.params,
+          [name]: { ...(current.params[name] ?? { mode: "default", value: null, last_value: null }), ...patch },
+        },
+      }),
+    );
 
   const shownOnCard = onCard(value.summary, rows);
   const toggleOnCard = (name: string) =>
     setValue((current) => {
       const chosen = onCard(current.summary, rows);
       const next = chosen.includes(name) ? chosen.filter((item) => item !== name) : [...chosen, name];
-      return { ...current, summary: next };
+      // In Jenkins' order and at most four, as the server keeps it.
+      return { ...current, summary: onCard(next, rows) };
     });
 
   const drop = (name: string) =>
     setValue((current) => {
       const params = { ...current.params };
       delete params[name];
-      return { ...current, params };
+      return tidy({ ...current, params });
     });
 
   return (

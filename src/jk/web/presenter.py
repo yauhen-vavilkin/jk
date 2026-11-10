@@ -79,7 +79,8 @@ def preset(stored: records.Preset, *, base_url: str) -> schemas.Preset:
         job_path=stored.job_path,
         job_url=job_url(base_url, stored.job_path),
         destructive=stored.destructive,
-        summary_params=list(stored.summary_params),
+        summary_params=list(stored.card_names()),
+        summary_chosen=stored.summary_chosen,
         params={
             name: schemas.ParamSetting(
                 mode=setting.mode.value, value=setting.value, last_value=setting.last_value
@@ -138,12 +139,12 @@ def summary(
     values: dict[str, str],
 ) -> list[schemas.SummaryValue]:
     # The saved job's choice, as it stands now; the copy kept with the step only
-    # serves a step whose saved job is gone.
-    names = (
-        source.summary_params
-        if source is not None
-        else meta.steps[stored.position].summary_params or tuple(values)
-    )
+    # serves a step whose saved job is gone. Nobody having chosen, and nothing
+    # being sent, shows every value; a choice of none shows none.
+    if source is not None:
+        names = source.card_names() or (() if source.summary_chosen else tuple(values))
+    else:
+        names = meta.steps[stored.position].summary_params or tuple(values)
     per_run = set(source.ask_names()) if source is not None else set()
     return [
         schemas.SummaryValue(name=name, value=values.get(name, ""), per_run=name in per_run)

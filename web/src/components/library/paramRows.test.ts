@@ -32,6 +32,7 @@ function preset(over: Partial<Preset> = {}): Preset {
     job_url: "",
     destructive: false,
     summary_params: [],
+    summary_chosen: false,
     params: {},
     definitions: [],
     drift: null,

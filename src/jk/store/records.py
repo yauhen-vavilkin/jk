@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+#: A card shows this many values at most.
+MAX_SUMMARY_PARAMS = 4
+
 
 class ParamMode(StrEnum):
     FIXED = "fixed"
@@ -95,6 +98,16 @@ class Preset:
     drift: Drift | None
     created_at: int
     updated_at: int
+    #: Someone chose which values the card shows; until then it shows the first
+    #: four sent, worked out whenever it is read.
+    summary_chosen: bool = False
+
+    def card_names(self) -> tuple[str, ...]:
+        """The values the card shows, now: the chosen ones that are still sent, or the
+        first four sent while nobody chose."""
+        return card_names(
+            self.summary_params if self.summary_chosen else None, self.params, self.definitions
+        )
 
     def sent_values(self, run_values: dict[str, str] | None = None) -> dict[str, str]:
         """Exactly what a submission body would contain.
@@ -113,6 +126,24 @@ class Preset:
 
     def ask_names(self) -> tuple[str, ...]:
         return tuple(name for name, setting in self.params.items() if setting.mode is ParamMode.ASK)
+
+
+def card_names(
+    chosen: tuple[str, ...] | list[str] | None,
+    params: dict[str, ParamSetting],
+    definitions: tuple[DefinitionSnapshot, ...],
+) -> tuple[str, ...]:
+    """The values of `chosen` that are still sent, in the order Jenkins declares
+    them, at most four; without `chosen`, the first four sent."""
+    sent = (ParamMode.FIXED, ParamMode.ASK)
+    shown = [
+        item.name
+        for item in definitions
+        if item.name in params
+        and params[item.name].mode in sent
+        and (chosen is None or item.name in chosen)
+    ]
+    return tuple(shown[:MAX_SUMMARY_PARAMS])
 
 
 @dataclass(frozen=True)

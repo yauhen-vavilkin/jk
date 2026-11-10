@@ -192,14 +192,56 @@ async def test_a_chosen_list_is_kept_when_other_things_change_and_cleared_on_req
 
 async def test_a_chosen_value_that_is_no_longer_sent_leaves_the_card(client) -> None:
     created = (
+        await client.post("/api/presets", json={**BODY, "summary_params": ["NAMESPACE", "CLUSTER"]})
+    ).json()
+    url = f"/api/presets/{created['id']}"
+
+    off = {**BODY["params"], "NAMESPACE": {"mode": "default"}}
+    assert (await client.put(url, json={"params": off})).json()["summary_params"] == ["CLUSTER"]
+
+    # The choice is kept: the value is back on the card once it is sent again.
+    back = {**BODY["params"], "NAMESPACE": {"mode": "fixed", "value": "n"}}
+    assert (await client.put(url, json={"params": back})).json()["summary_params"] == [
+        "CLUSTER",
+        "NAMESPACE",
+    ]
+
+
+async def test_until_someone_chooses_the_card_follows_what_is_sent(client) -> None:
+    body = {**BODY, "params": {"CLUSTER": {"mode": "fixed", "value": "c"}}}
+    created = (await client.post("/api/presets", json=body)).json()
+    assert created["summary_chosen"] is False
+    assert created["summary_params"] == ["CLUSTER"]
+
+    more = {**body["params"], "NAMESPACE": {"mode": "fixed", "value": "n"}}
+    updated = (await client.put(f"/api/presets/{created['id']}", json={"params": more})).json()
+
+    assert updated["summary_chosen"] is False
+    assert updated["summary_params"] == ["CLUSTER", "NAMESPACE"]
+
+
+async def test_a_choice_of_none_stays_none(client) -> None:
+    created = (await client.post("/api/presets", json={**BODY, "summary_params": []})).json()
+    url = f"/api/presets/{created['id']}"
+    assert created["summary_chosen"] is True
+    assert created["summary_params"] == []
+
+    renamed = (await client.put(url, json={"name": "renamed"})).json()
+    edited = (await client.put(url, json={"params": BODY["params"]})).json()
+
+    assert renamed["summary_params"] == [] == edited["summary_params"]
+    assert edited["summary_chosen"] is True
+
+
+async def test_a_copy_keeps_the_choice(client) -> None:
+    created = (
         await client.post("/api/presets", json={**BODY, "summary_params": ["NAMESPACE"]})
     ).json()
-    params = {**BODY["params"], "NAMESPACE": {"mode": "default"}}
 
-    updated = (await client.put(f"/api/presets/{created['id']}", json={"params": params})).json()
+    copy = (await client.post(f"/api/presets/{created['id']}/duplicate")).json()
 
-    # Nothing chosen is left, so the card falls back to the first sent values.
-    assert updated["summary_params"] == ["CLUSTER", "FOLIO_BRANCH"]
+    assert copy["summary_chosen"] is True
+    assert copy["summary_params"] == ["NAMESPACE"]
 
 
 async def test_every_sent_value_can_be_chosen(client) -> None:

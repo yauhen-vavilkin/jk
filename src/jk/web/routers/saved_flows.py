@@ -125,7 +125,7 @@ async def instantiate(
             preset_name=preset.name,
             job_path=preset.job_path,
             destructive=preset.destructive,
-            summary_params=preset.summary_params,
+            summary_params=preset.card_names(),
             condition=step.condition,
             run_values=dict(step.run_values),
             added_while_running=running,

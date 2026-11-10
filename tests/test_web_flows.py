@@ -96,6 +96,13 @@ async def test_a_card_shows_the_summary_parameters_of_its_preset(client) -> None
     ]
 
 
+async def test_a_card_shows_nothing_for_a_saved_job_chosen_to_show_nothing(client) -> None:
+    preset = await make_preset(client, summary_params=[])
+    flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
+
+    assert flow["steps"][0]["summary"] == []
+
+
 async def test_an_empty_draft_can_be_created_and_deleted(client) -> None:
     flow = (await client.post("/api/flows", json={})).json()
 

@@ -8,8 +8,7 @@ from fastapi import APIRouter, Request, Response
 
 from jk.engine.drift import diff, snapshot_of
 from jk.jenkins.models import ERROR_PLACEHOLDER
-from jk.store.presets import MAX_SUMMARY_PARAMS
-from jk.store.records import DefinitionSnapshot, ParamMode, ParamSetting, Preset
+from jk.store.records import DefinitionSnapshot, ParamMode, ParamSetting, Preset, card_names
 from jk.web import errors, naming, presenter, schemas
 from jk.web.deps import Services, services_of
 
@@ -67,27 +66,13 @@ def _check_values(
             raise errors.placeholder_value(name)
 
 
-def _summary(
-    params: dict[str, ParamSetting], definitions: tuple[DefinitionSnapshot, ...]
-) -> tuple[str, ...]:
-    """What a card shows until someone chooses: the first four sent values, in the
-    order Jenkins declares them."""
-    return _chosen(None, params, definitions)
-
-
 def _chosen(
-    names: list[str] | tuple[str, ...] | None,
+    names: list[str] | None,
     params: dict[str, ParamSetting],
     definitions: tuple[DefinitionSnapshot, ...],
-) -> tuple[str, ...]:
-    """The values a card shows: those of `names` that are still sent, in the order
-    Jenkins declares them, at most four. Without `names`, the first four sent."""
-    sent = (ParamMode.FIXED, ParamMode.ASK)
-    declared = [item.name for item in definitions if item.name in params]
-    shown = [
-        name for name in declared if params[name].mode in sent and (names is None or name in names)
-    ]
-    return tuple(shown[:MAX_SUMMARY_PARAMS])
+) -> tuple[str, ...] | None:
+    """The list to keep for what the user chose; nothing to change without a choice."""
+    return None if names is None else card_names(names, params, definitions)
 
 
 def _found(services: Services, preset_id: str) -> Preset:
@@ -116,24 +101,13 @@ async def create_preset(request: Request, body: schemas.PresetCreate) -> schemas
         operation=body.operation,
         job_path=body.job_path,
         destructive=body.destructive,
-        summary_params=_chosen(body.summary_params, params, definitions),
+        summary_params=_chosen(body.summary_params, params, definitions) or (),
+        summary_chosen=body.summary_params is not None,
         params=params,
         definitions=definitions,
     )
     services.publish_preset(created.id)
     return presenter.preset(created, base_url=services.base_url)
-
-
-def _updated_summary(
-    body: schemas.PresetUpdate, params: dict[str, ParamSetting] | None, current: Preset
-) -> tuple[str, ...]:
-    """A list that was sent is kept (even empty); otherwise the current choice stays,
-    less what is no longer sent, and falls back to the first four if nothing is left."""
-    now = params or current.params
-    if body.summary_params is not None:
-        return _chosen(body.summary_params, now, current.definitions)
-    kept = _chosen(current.summary_params, now, current.definitions)
-    return kept or _summary(now, current.definitions)
 
 
 @router.put("/{preset_id}", response_model=schemas.Preset)
@@ -154,7 +128,8 @@ async def update_preset(
         name=body.name,
         operation=body.operation,
         destructive=body.destructive,
-        summary_params=_updated_summary(body, params, current),
+        summary_params=_chosen(body.summary_params, params or current.params, current.definitions),
+        summary_chosen=None if body.summary_params is None else True,
         params=params,
     )
     services.publish_preset(preset_id)
@@ -183,6 +158,7 @@ async def duplicate_preset(request: Request, preset_id: str) -> schemas.Preset:
         job_path=original.job_path,
         destructive=original.destructive,
         summary_params=original.summary_params,
+        summary_chosen=original.summary_chosen,
         params=dict(original.params),
         definitions=original.definitions,
         drift=original.drift,

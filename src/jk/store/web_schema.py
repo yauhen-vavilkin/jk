@@ -95,6 +95,8 @@ _ADDED_COLUMNS = {
     },
     "flow_step_meta": {"held": "INTEGER NOT NULL DEFAULT 0"},
     "jenkins_jobs": {"typical_ms": "INTEGER"},
+    # 0: the card shows the first four sent values, worked out when read.
+    "presets": {"summary_chosen": "INTEGER NOT NULL DEFAULT 0"},
 }
 
 
