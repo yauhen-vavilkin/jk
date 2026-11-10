@@ -19,7 +19,7 @@ import {
   estimateText,
   roundMinutes,
 } from "@/lib/time";
-import { canChangeSteps } from "@/lib/flowState";
+import { canChangeSteps, stepIdentity } from "@/lib/flowState";
 import { CARD_CLASS, borderOf, notStarted, statusOf } from "./cardMetrics";
 import { fillLabel } from "./headerState";
 import ConditionButton from "./ConditionButton";
@@ -76,7 +76,7 @@ export function StepCardBody({
   const removeButton = useRef<HTMLButtonElement>(null);
   // The card stands for a place, not a job: when another job takes this place,
   // the question asked about the one before must not be answered for it.
-  const identity = `${step.preset_id}@${step.added_at}`;
+  const identity = stepIdentity(step);
   useEffect(() => setConfirming(false), [identity]);
 
   return (

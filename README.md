@@ -102,6 +102,8 @@ The panel has three pages:
 
   Removing or moving a step of a draft happens at once, and a line above the
   board offers **Undo** for a few seconds, which puts the step back as it was.
+  Undo does nothing once the flow changed again in the meantime, and a removed
+  step whose saved job is gone or changed in Jenkins gets no Undo.
   In a flow that has started, only the steps not sent yet change: a move offers
   **Undo** too, and the **×** of a step asks **Remove step N?** on its card
   first, because the flow may reach that step at any moment.

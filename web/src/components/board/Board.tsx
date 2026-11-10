@@ -13,6 +13,7 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Bookmark, Plus } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -20,6 +21,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import type { Flow, Preset, ReviewScope, SavedFlow, Step } from "@/api/types";
 import {
+  keys,
   useAddStep,
   useClearFlow,
   useCloseFlow,
@@ -51,7 +53,7 @@ import RunValues, { carriedValues } from "@/components/modals/RunValues";
 import IconButton from "@/components/ui/IconButton";
 import { GroupLabel, QuietButton } from "@/components/ui/primitives";
 import { CARD_CLASS } from "./cardMetrics";
-import { hasEnded } from "@/lib/flowState";
+import { hasEnded, stepIdentity } from "@/lib/flowState";
 import { boardAnnouncements, landed, type Landing } from "./announcements";
 import { trashAction } from "./headerState";
 import { insertTarget, type InsertPlace } from "./insertTarget";
@@ -69,10 +71,11 @@ const UNDO_MS = 8000;
 /** A second press of a step's remove button on the same flow sooner than this is the same press, not a second remove. */
 const DOUBLE_PRESS_MS = 500;
 const UNDO_TOO_LATE = "The flow changed after that, so Undo did nothing.";
+const UNDO_BUSY = "A change is still being saved, so Undo did nothing.";
 
 /** What a step Undo depends on: the flow's status and which job stands where. */
 const shapeOf = (flow: Flow) =>
-  [flow.status, ...flow.steps.map((step) => `${step.preset_id}@${step.added_at}:${step.condition}`)].join("|");
+  [flow.status, ...flow.steps.map((step) => `${stepIdentity(step)}:${step.condition}`)].join("|");
 /** How long a flow the board was opened at stays lit. */
 const HIGHLIGHT_MS = 1500;
 
@@ -184,11 +187,11 @@ export default function Board() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   // The saved flow Save just kept, scrolled into view in the column.
   const [savedId, setSavedId] = useState<string | null>(null);
-  // The flows as the cache holds them now, for an Undo offered a while ago.
-  const latestFlows = useRef(flows.data);
-  latestFlows.current = flows.data;
-  // The last step removed, so a double press does not remove its neighbour too.
+  const queryClient = useQueryClient();
+  // The last step removed, and the flows with a remove still on its way, so a
+  // double press does not remove the neighbour that took the step's place.
   const lastRemove = useRef<{ flowId: string; at: number } | null>(null);
+  const removing = useRef(new Set<string>());
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const visible = visibleFlows(flows.data ?? []).filter((flow) => !hidden.includes(flow.id));
@@ -504,7 +507,9 @@ export default function Board() {
     deleteNow();
     const shape = shapeOf(after);
     offerUndo(text, () => {
-      const now = latestFlows.current?.find((item) => item.id === after.id);
+      // A change still on its way is not in the cache yet: the shape cannot tell.
+      if (queryClient.isMutating() > 0) return refuse(UNDO_BUSY);
+      const now = queryClient.getQueryData<Flow[]>(keys.flows)?.find((item) => item.id === after.id);
       if (!now || shapeOf(now) !== shape) return refuse(UNDO_TOO_LATE);
       undo();
     });
@@ -523,10 +528,17 @@ export default function Board() {
     const pressed = Date.now();
     const last = lastRemove.current;
     if (last && last.flowId === flow.id && pressed - last.at < DOUBLE_PRESS_MS) return;
+    if (removing.current.has(flow.id)) return;
     lastRemove.current = { flowId: flow.id, at: pressed };
     const draft = flow.status === "draft";
     if (draft && flow.steps.length === 1) return onDelete(flow);
-    const after = await removeStep.mutateAsync({ flowId: flow.id, stepId });
+    removing.current.add(flow.id);
+    let after: Flow;
+    try {
+      after = await removeStep.mutateAsync({ flowId: flow.id, stepId });
+    } finally {
+      removing.current.delete(flow.id);
+    }
     // A saved job that is gone or that Jenkins changed cannot be added back.
     const preset = presetById.get(step.preset_id);
     if (!draft || !preset || preset.drift) return;
