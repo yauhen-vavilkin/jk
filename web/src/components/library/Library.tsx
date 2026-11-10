@@ -15,6 +15,7 @@ import {
   useSavePreset,
 } from "@/api/queries";
 import JobsList from "./JobsList";
+import { summaryToSend } from "./editorValue";
 import PresetEditor, { READING, type EditorValue } from "./PresetEditor";
 
 /** One empty list for a job whose definitions have not come: not a new one per render. */
@@ -102,6 +103,7 @@ export default function Library() {
           operation: value.operation,
           destructive: value.destructive,
           params: value.params,
+          summary_params: summaryToSend(value, preset ?? null),
         },
       },
       {

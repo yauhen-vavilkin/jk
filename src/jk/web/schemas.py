@@ -77,6 +77,7 @@ class PresetCreate(BaseModel):
     operation: str
     destructive: bool = False
     params: dict[str, ParamSetting] = {}
+    summary_params: list[str] | None = None
 
 
 class PresetUpdate(BaseModel):
@@ -84,6 +85,7 @@ class PresetUpdate(BaseModel):
     operation: str | None = None
     destructive: bool | None = None
     params: dict[str, ParamSetting] | None = None
+    summary_params: list[str] | None = None
 
 
 class RepairRequest(BaseModel):

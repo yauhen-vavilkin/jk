@@ -160,6 +160,62 @@ async def test_a_saved_job_summary_is_its_first_four_sent_values(client) -> None
     assert created["summary_params"] == ["CLUSTER", "NAMESPACE", "FOLIO_BRANCH"]
 
 
+async def test_the_card_shows_the_values_that_were_chosen(client) -> None:
+    created = (
+        await client.post(
+            "/api/presets",
+            # Out of Jenkins' order, one not sent, one not defined: only sent ones stay, in order.
+            json={**BODY, "summary_params": ["FOLIO_BRANCH", "ADMIN_PASSWORD", "CLUSTER", "NOPE"]},
+        )
+    ).json()
+
+    assert created["summary_params"] == ["CLUSTER", "FOLIO_BRANCH"]
+
+
+async def test_a_chosen_list_is_kept_when_other_things_change_and_cleared_on_request(
+    client,
+) -> None:
+    created = (
+        await client.post("/api/presets", json={**BODY, "summary_params": ["NAMESPACE"]})
+    ).json()
+    url = f"/api/presets/{created['id']}"
+
+    renamed = (await client.put(url, json={"name": "renamed"})).json()
+    assert renamed["summary_params"] == ["NAMESPACE"]
+
+    chosen = (await client.put(url, json={"summary_params": ["FOLIO_BRANCH", "CLUSTER"]})).json()
+    assert chosen["summary_params"] == ["CLUSTER", "FOLIO_BRANCH"]
+
+    cleared = (await client.put(url, json={"summary_params": []})).json()
+    assert cleared["summary_params"] == []
+
+
+async def test_a_chosen_value_that_is_no_longer_sent_leaves_the_card(client) -> None:
+    created = (
+        await client.post("/api/presets", json={**BODY, "summary_params": ["NAMESPACE"]})
+    ).json()
+    params = {**BODY["params"], "NAMESPACE": {"mode": "default"}}
+
+    updated = (await client.put(f"/api/presets/{created['id']}", json={"params": params})).json()
+
+    # Nothing chosen is left, so the card falls back to the first sent values.
+    assert updated["summary_params"] == ["CLUSTER", "FOLIO_BRANCH"]
+
+
+async def test_every_sent_value_can_be_chosen(client) -> None:
+    params = {
+        "CLUSTER": {"mode": "fixed", "value": "c"},
+        "NAMESPACE": {"mode": "fixed", "value": "n"},
+        "FOLIO_BRANCH": {"mode": "fixed", "value": "b"},
+        "ADMIN_PASSWORD": {"mode": "fixed", "value": "x"},
+    }
+    names = list(params)
+    created = (
+        await client.post("/api/presets", json={**BODY, "params": params, "summary_params": names})
+    ).json()
+    assert created["summary_params"] == names
+
+
 async def test_an_unreachable_jenkins_is_reported_not_guessed(tmp_path: Path) -> None:
     jenkins = FakeJenkins(unreachable=True)
     services = build(tmp_path, jenkins)

@@ -4,6 +4,7 @@ import {
   DRIFT_BLOCKER,
   PASSWORD_BLOCKER,
   fixedStart,
+  onCard,
   placeholderBlocker,
   repairRequest,
   valueNeededBlocker,
@@ -188,5 +189,38 @@ describe("suggestsDestructive", () => {
     expect(suggestsDestructive("folioRancher/manageNamespace/deleteNamespace")).toBe(true);
     expect(suggestsDestructive("folioRancher/manageNamespace/createNamespaceFromBranch")).toBe(true);
     expect(suggestsDestructive("folioTestingTools/runCypressTests")).toBe(false);
+  });
+});
+
+describe("onCard", () => {
+  const rows = rowsOf(
+    preset({
+      definitions: ["A", "B", "C", "D", "E", "F"].map((name) => definition(name)),
+      params: {
+        A: setting("default"),
+        B: setting("fixed", "b"),
+        C: setting("ask"),
+        D: setting("fixed", "d"),
+        E: setting("fixed", "e"),
+        F: setting("fixed", "f"),
+      },
+    }),
+    {
+      A: setting("default"),
+      B: setting("fixed", "b"),
+      C: setting("ask"),
+      D: setting("fixed", "d"),
+      E: setting("fixed", "e"),
+      F: setting("fixed", "f"),
+    },
+  );
+
+  it("is the first four sent while nobody chose", () => {
+    expect(onCard(null, rows)).toEqual(["B", "C", "D", "E"]);
+  });
+
+  it("is what was chosen, in Jenkins' order, without what is no longer sent", () => {
+    expect(onCard(["F", "A", "C"], rows)).toEqual(["C", "F"]);
+    expect(onCard([], rows)).toEqual([]);
   });
 });

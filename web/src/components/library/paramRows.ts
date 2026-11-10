@@ -71,6 +71,22 @@ export function rowsOf(preset: Preset, draft: Draft): ParamRow[] {
   );
 }
 
+/** A card shows this many values at most. */
+export const CARD_LIMIT = 4;
+
+/**
+ * The names whose values the card shows: the chosen ones that are still sent, else
+ * the first sent. The rows are in Jenkins' order, which is the order the card uses.
+ */
+export function onCard(summary: string[] | null, rows: ParamRow[]): string[] {
+  const sent = rows.filter((row) => row.mode !== "default" && row.kind !== "removed");
+  const names = sent.map((row) => row.name);
+  return (summary === null ? names : names.filter((name) => summary.includes(name))).slice(
+    0,
+    CARD_LIMIT,
+  );
+}
+
 export const PASSWORD_BLOCKER = "A password parameter has no value.";
 /** What Jenkins answers for an Active Choices parameter it cannot compute yet. */
 const ERROR_PLACEHOLDER = "error";

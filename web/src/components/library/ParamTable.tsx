@@ -1,25 +1,37 @@
 // Every parameter Jenkins defines, and what JK does with it, in the order
 // Jenkins declares them. All of them are listed, always:
 // this is where a saved job is built, so nothing it will send is behind a click.
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import Menu, { MenuItem } from "@/components/ui/Menu";
 import Segmented from "@/components/ui/Segmented";
-import { fixedStart, holdsPlaceholder, needsAValue, type Draft, type ParamRow } from "./paramRows";
+import {
+  CARD_LIMIT,
+  fixedStart,
+  holdsPlaceholder,
+  needsAValue,
+  type Draft,
+  type ParamRow,
+} from "./paramRows";
 
 // When space is short the name, the default and the value give way, each cut
 // with … and whole on hover; `sent as` keeps its width, so every choice stays
 // on screen.
 const GRID =
-  "grid grid-cols-[minmax(140px,220px)_minmax(80px,1fr)_minmax(160px,300px)_186px] gap-4";
+  "grid grid-cols-[minmax(140px,220px)_minmax(80px,1fr)_minmax(160px,300px)_186px_56px] gap-4";
 
 export default function ParamTable({
   rows,
+  onCard,
+  onToggleOnCard,
   onChange,
   onDrop,
 }: {
   rows: ParamRow[];
+  /** The names whose values the card shows. */
+  onCard: string[];
+  onToggleOnCard: (name: string) => void;
   onChange: (name: string, setting: Partial<Draft[string]>) => void;
   onDrop: (name: string) => void;
 }) {
@@ -32,6 +44,7 @@ export default function ParamTable({
         <span>jenkins default</span>
         <span>your value</span>
         <span>sent as</span>
+        <span title="The values a card shows">on card</span>
       </div>
 
       {rows.map((row) => (
@@ -59,6 +72,8 @@ export default function ParamTable({
           <YourValue row={row} onChange={onChange} onDrop={onDrop} />
 
           <SentAs row={row} onChange={onChange} />
+
+          <OnCard row={row} onCard={onCard} onToggle={onToggleOnCard} />
         </div>
       ))}
 
@@ -187,6 +202,41 @@ function SentAs({
   const choose = (mode: Draft[string]["mode"]) =>
     onChange(row.name, mode === "fixed" && row.value === "" ? { mode, value: fixedStart(row) } : { mode });
   return <Segmented name={row.name} value={row.mode} onChange={choose} />;
+}
+
+/** Whether the card shows this value. Only a value that is sent can be shown. */
+function OnCard({
+  row,
+  onCard,
+  onToggle,
+}: {
+  row: ParamRow;
+  onCard: string[];
+  onToggle: (name: string) => void;
+}) {
+  if (row.mode === "default" || row.kind === "removed") return <span />;
+  const checked = onCard.includes(row.name);
+  const full = !checked && onCard.length >= CARD_LIMIT;
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={`Show ${row.name} on the card`}
+      aria-disabled={full}
+      title={full ? `A card shows ${CARD_LIMIT} values` : undefined}
+      onClick={() => !full && onToggle(row.name)}
+      className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border transition-colors duration-150 ${
+        checked
+          ? "border-text bg-text text-on-accent"
+          : full
+            ? "border-hairline text-dim opacity-50"
+            : "border-dim text-dim hover:border-text"
+      }`}
+    >
+      {checked && <Check size={13} strokeWidth={3} aria-hidden />}
+    </button>
+  );
 }
 
 /** The values Jenkins declares for a choice parameter, in the order it declares them. */

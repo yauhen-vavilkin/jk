@@ -137,7 +137,13 @@ def summary(
     source: records.Preset | None,
     values: dict[str, str],
 ) -> list[schemas.SummaryValue]:
-    names = meta.steps[stored.position].summary_params or tuple(values)
+    # The saved job's choice, as it stands now; the copy kept with the step only
+    # serves a step whose saved job is gone.
+    names = (
+        source.summary_params
+        if source is not None
+        else meta.steps[stored.position].summary_params or tuple(values)
+    )
     per_run = set(source.ask_names()) if source is not None else set()
     return [
         schemas.SummaryValue(name=name, value=values.get(name, ""), per_run=name in per_run)

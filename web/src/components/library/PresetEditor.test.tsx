@@ -255,3 +255,34 @@ describe("a fixed value field", () => {
     expect(field).toHaveFocus();
   });
 });
+
+describe("the values a card shows", () => {
+  const names = ["A", "B", "C", "D", "E"];
+  const many = preset({
+    summary_params: ["A", "B", "C", "D"],
+    params: Object.fromEntries(names.map((item) => [item, { mode: "fixed", value: item, last_value: null }])),
+    definitions: names.map((item) => ({ name: item, type: "StringParameterDefinition", default: null, choices: null })),
+  });
+  const box = (item: string) => screen.getByRole("checkbox", { name: `Show ${item} on the card` });
+
+  it("ticks the saved list, and holds a fifth back until one is unticked", () => {
+    render(editor({ preset: many, definitions: many.definitions }));
+
+    expect(["A", "B", "C", "D"].every((item) => box(item).getAttribute("aria-checked") === "true")).toBe(true);
+    expect(box("E")).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(box("E"));
+    expect(box("E")).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(box("A"));
+    expect(off(SAVE)).toBe(false);
+    fireEvent.click(box("E"));
+    expect(box("E")).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("offers no box for a value left to Jenkins", () => {
+    const left = preset({ ...many, params: { ...many.params, E: { mode: "default", value: null, last_value: null } } });
+    render(editor({ preset: left, definitions: left.definitions }));
+
+    expect(screen.queryByRole("checkbox", { name: "Show E on the card" })).toBeNull();
+  });
+});

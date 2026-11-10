@@ -13,7 +13,7 @@ import SaveButton from "@/components/ui/SaveButton";
 import DriftBanner from "./DriftBanner";
 import ParamTable from "./ParamTable";
 import { rebase, sameEditorValue, seedFrom, signatureOf, type EditorValue } from "./editorValue";
-import { repairRequest, rowsOf, saveBlocker } from "./paramRows";
+import { onCard, repairRequest, rowsOf, saveBlocker } from "./paramRows";
 
 /** Why a new saved job has no parameters yet. */
 export const READING = "Reading the job from Jenkins…";
@@ -108,7 +108,7 @@ export default function PresetEditor({
     job_path: jobPath,
     job_url: "",
     destructive: value.destructive,
-    summary_params: [],
+    summary_params: value.summary ?? [],
     params: value.params,
     definitions,
     drift: null,
@@ -126,6 +126,14 @@ export default function PresetEditor({
         [name]: { ...(current.params[name] ?? { mode: "default", value: null, last_value: null }), ...patch },
       },
     }));
+
+  const shownOnCard = onCard(value.summary, rows);
+  const toggleOnCard = (name: string) =>
+    setValue((current) => {
+      const chosen = onCard(current.summary, rows);
+      const next = chosen.includes(name) ? chosen.filter((item) => item !== name) : [...chosen, name];
+      return { ...current, summary: next };
+    });
 
   const drop = (name: string) =>
     setValue((current) => {
@@ -259,7 +267,13 @@ export default function PresetEditor({
       {reading ? (
         <div className={`px-7 pt-4 text-[14px] ${reading === READING ? "text-dim" : "text-warn"}`}>{reading}</div>
       ) : (
-        <ParamTable rows={rows} onChange={change} onDrop={drop} />
+        <ParamTable
+          rows={rows}
+          onCard={shownOnCard}
+          onToggleOnCard={toggleOnCard}
+          onChange={change}
+          onDrop={drop}
+        />
       )}
     </div>
   );

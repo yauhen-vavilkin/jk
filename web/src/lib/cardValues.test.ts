@@ -53,6 +53,23 @@ describe("cardValues", () => {
     );
   });
 
+  it("prints an address without its scheme, and cuts a long one in the middle", () => {
+    const [short, long] = texts([
+      value("KONG_URL", "https://kong.example.org/"),
+      value("TENANT_URL", "https://folio-example-eureka-snapshot.ci.example.org"),
+    ]).flat();
+
+    expect(short).toBe("kong.example.org");
+    expect(long).toHaveLength(28);
+    expect(long).toBe("folio-example-eure…ample.org");
+  });
+
+  it("keeps the whole address for the hover title", () => {
+    const shown = cardValues([value("TENANT_URL", "https://folio-example-eureka-snapshot.ci.example.org")]);
+
+    expect(shown.title).toBe("TENANT_URL=https://folio-example-eureka-snapshot.ci.example.org");
+  });
+
   it("leaves every empty value off the value lines", () => {
     expect(cardValues([value("FOLIO_BRANCH", "", true), value("CONFIG_TYPE", "")]).lines).toEqual([]);
   });

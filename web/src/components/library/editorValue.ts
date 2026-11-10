@@ -8,6 +8,8 @@ export interface EditorValue {
   operation: string;
   destructive: boolean;
   params: Draft;
+  /** The values the card shows, as chosen; null while nobody chose and the first four sent show. */
+  summary: string[] | null;
 }
 
 export function seedFrom(
@@ -21,6 +23,7 @@ export function seedFrom(
       operation: preset.operation,
       destructive: preset.destructive,
       params: { ...preset.params },
+      summary: [...preset.summary_params],
     };
   }
   const params: Draft = {};
@@ -35,6 +38,7 @@ export function seedFrom(
     operation: "",
     destructive: suggestsDestructive(jobPath),
     params,
+    summary: null,
   };
 }
 
@@ -46,9 +50,31 @@ function sameSetting(a: Setting | undefined, b: Setting | undefined): boolean {
   return a.mode === b.mode && (a.value ?? "") === (b.value ?? "");
 }
 
-/** Nothing to save: the same name, operation, flag, and parameters as the user set them. */
+function sameSummary(a: string[] | null, b: string[] | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.length === b.length && a.every((name, index) => name === b[index]);
+}
+
+/**
+ * The card's values to send: only what the user chose. Nothing is sent while nobody
+ * chose, or for the list the saved job already holds, so a value that stops being
+ * sent leaves the card without anyone having asked for an empty one.
+ */
+export function summaryToSend(value: EditorValue, preset: Preset | null): string[] | undefined {
+  if (value.summary === null || sameSummary(value.summary, preset?.summary_params ?? null)) {
+    return undefined;
+  }
+  return value.summary;
+}
+
+/** Nothing to save: the same name, operation, flag, card values, and parameters as the user set them. */
 export function sameEditorValue(a: EditorValue, b: EditorValue): boolean {
-  if (a.name !== b.name || a.operation !== b.operation || a.destructive !== b.destructive) {
+  if (
+    a.name !== b.name ||
+    a.operation !== b.operation ||
+    a.destructive !== b.destructive ||
+    !sameSummary(a.summary, b.summary)
+  ) {
     return false;
   }
   const names = new Set([...Object.keys(a.params), ...Object.keys(b.params)]);
@@ -63,7 +89,7 @@ export function signatureOf(value: EditorValue): string {
       const setting = value.params[name];
       return [name, setting?.mode, setting?.value ?? "", setting?.last_value ?? ""];
     });
-  return JSON.stringify([value.name, value.operation, value.destructive, params]);
+  return JSON.stringify([value.name, value.operation, value.destructive, value.summary, params]);
 }
 
 /**
@@ -93,6 +119,7 @@ export function rebase(base: EditorValue, mine: EditorValue, theirs: EditorValue
     name: mine.name !== base.name ? mine.name : theirs.name,
     operation: mine.operation !== base.operation ? mine.operation : theirs.operation,
     destructive: mine.destructive !== base.destructive ? mine.destructive : theirs.destructive,
+    summary: sameSummary(mine.summary, base.summary) ? theirs.summary : mine.summary,
     params,
   };
 }

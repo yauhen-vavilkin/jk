@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { rebase, sameEditorValue, seedFrom, signatureOf, type EditorValue } from "./editorValue";
+import type { Preset } from "@/api/types";
+import { rebase, sameEditorValue, seedFrom, signatureOf, summaryToSend, type EditorValue } from "./editorValue";
 
 const value = (patch: Partial<EditorValue> = {}): EditorValue => ({
   name: "Nightly",
@@ -10,6 +11,7 @@ const value = (patch: Partial<EditorValue> = {}): EditorValue => ({
     CLUSTER: { mode: "fixed", value: "example-cluster", last_value: "example-cluster" },
     NAMESPACE: { mode: "ask", value: null, last_value: "example-ns" },
   },
+  summary: null,
   ...patch,
 });
 
@@ -31,6 +33,7 @@ describe("nothing to save", () => {
       value({ name: "Nightly 2" }),
       value({ operation: "Create" }),
       value({ destructive: true }),
+      value({ summary: ["NAMESPACE"] }),
       value({ params: { ...saved.params, CLUSTER: { mode: "ask", value: null, last_value: null } } }),
       value({ params: { ...saved.params, CLUSTER: { mode: "fixed", value: "folio-snd", last_value: null } } }),
       value({ params: { ...saved.params, OKAPI: { mode: "fixed", value: "5.0", last_value: null } } }),
@@ -98,5 +101,32 @@ describe("a new saved job", () => {
     ]);
     expect(seeded.params.CLUSTER?.last_value).toBeNull();
     expect(seeded.params.TENANT?.last_value).toBe("diku");
+  });
+});
+
+describe("the values a card shows", () => {
+  const held = { summary_params: ["CLUSTER"] } as Preset;
+
+  it("is not sent while nobody chose, or when it is the list the saved job holds", () => {
+    expect(summaryToSend(value({ summary: null }), null)).toBeUndefined();
+    expect(summaryToSend(value({ summary: ["CLUSTER"] }), held)).toBeUndefined();
+  });
+
+  it("is sent once the user chose, even a list of none", () => {
+    expect(summaryToSend(value({ summary: ["NAMESPACE"] }), held)).toEqual(["NAMESPACE"]);
+    expect(summaryToSend(value({ summary: [] }), held)).toEqual([]);
+    expect(summaryToSend(value({ summary: ["CLUSTER"] }), null)).toEqual(["CLUSTER"]);
+  });
+
+  it("starts from the saved job's list, and from none chosen for a new one", () => {
+    expect(seedFrom(held, "folder/job", []).summary).toEqual(["CLUSTER"]);
+    expect(seedFrom(null, "folder/job", []).summary).toBeNull();
+  });
+
+  it("keeps the user's choice on a newer copy, and follows the newer copy otherwise", () => {
+    const base = value({ summary: ["CLUSTER"] });
+    const newer = value({ summary: ["NAMESPACE"] });
+    expect(rebase(base, base, newer).summary).toEqual(["NAMESPACE"]);
+    expect(rebase(base, value({ summary: [] }), newer).summary).toEqual([]);
   });
 });

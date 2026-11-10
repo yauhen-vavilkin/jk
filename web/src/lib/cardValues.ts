@@ -46,8 +46,21 @@ export function oneLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * An address without its scheme and a closing slash, and a long one cut in the
+ * middle, so its start and its end both show: two hosts of one family often
+ * differ in only one of them.
+ */
+function addressText(value: string): string {
+  if (!/^https?:\/\/\S+$/i.test(value)) return value;
+  const bare = value.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  if (bare.length <= LINE) return bare;
+  const tail = Math.floor((LINE - 1) / 3);
+  return `${bare.slice(0, LINE - 1 - tail)}…${bare.slice(bare.length - tail)}`;
+}
+
 function textOf(item: SummaryValue): string {
-  const value = oneLine(item.value);
+  const value = addressText(oneLine(item.value));
   // The only name-aware rule left: a bare number says nothing on its own.
   if (item.name === "NUMBER_OF_WORKERS" && value) {
     return `${value} ${value === "1" ? "worker" : "workers"}`;

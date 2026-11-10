@@ -56,6 +56,10 @@ job and nowhere else, and it lives in `.jk/runs.db`. It defines:
 - the full Jenkins job path;
 - for every Jenkins parameter, one mode: `fixed` with a saved value,
   `at launch` with a value typed for each run, or `default`, left to Jenkins;
+- the values its card shows: up to four of the values it sends, ticked in the
+  Library's table; until someone ticks, the first four it sends in Jenkins'
+  order. A value that stops being sent leaves the card. A long address is
+  printed without its scheme and cut in the middle;
 - whether the action is destructive and needs its target named in review;
 - a snapshot of the Jenkins parameter definitions it was saved against.
 

@@ -51,6 +51,10 @@ Rules:
   if everything is accented, nothing is.
   A step card never gets a dashed amber outline: it keeps its usual border, and
   `Fill N values` has a thin solid border and amber text.
+- **The card says what tells one job from another.** The saved job's table has
+  an *on card* checkbox per sent value, four at most; the others are disabled
+  with the title "A card shows 4 values". An address on a card has no scheme
+  and is cut in the middle, never at the end.
 - **Never encode state by colour alone.** A failed step says `FAILURE`, a
   destructive job says `destructive`. Colour reinforces the word; it does not
   replace it. Screens get recoloured and people see colour differently.

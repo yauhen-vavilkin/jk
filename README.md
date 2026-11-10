@@ -163,7 +163,8 @@ The panel has three pages:
   `fixed` is sent as written, `at launch` is typed per run -- in the window a
   card's **Fill N values** opens, or in the review, which names any still empty
   -- and `default` leaves the parameter to its Jenkins default and sends nothing
-  for it. When Jenkins changes a job, the saved job is marked and does not run
+  for it. The **on card** box beside a sent value shows it on the job's card, up
+  to four; until you tick one, the card shows the first four. When Jenkins changes a job, the saved job is marked and does not run
   until you have looked at the change: set the new parameters in the table and
   press **Accept as shown**, which saves them. **Used by** names each flow and
   step that uses the saved job, so you know where a Save lands. **Save** reads
