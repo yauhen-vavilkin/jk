@@ -1,7 +1,7 @@
-// The end of a flow's row: a narrow "+" that opens the saved-job picker. While a
-// saved job is dragged over the flow it widens to a card and becomes the drop
-// indicator, and in a draft a slot also stands open between two cards, in the
-// place the card would take.
+// The end of a flow's row: an empty card-sized "+" in the place the next step
+// takes, which opens the saved-job picker. While a saved job is dragged over the
+// flow it becomes the drop indicator, and in a draft a slot also stands open
+// between two cards, in the place the card would take.
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 
@@ -42,9 +42,14 @@ export default function AddSlot({
     );
   }
 
-  // A flow with no step yet has room for a whole card.
-  const size = position === 0 ? CARD_CLASS : "h-[164px] w-12 flex-none";
-  const tile = `${size} ${frame} border-hairline text-dim`;
+  // As large as the card it stands for, so it reads as the next step's place.
+  const tile = `${CARD_CLASS} ${frame} border-hairline text-[14px] text-dim`;
+  const face = (
+    <>
+      <Plus size={14} aria-hidden />
+      <span aria-hidden>Add step</span>
+    </>
+  );
   return onAdd ? (
     <button
       ref={droppable.setNodeRef}
@@ -54,11 +59,11 @@ export default function AddSlot({
       onClick={(event) => onAdd(event.currentTarget)}
       className={`${tile} hover:border-dim hover:text-text`}
     >
-      <Plus size={14} aria-hidden />
+      {face}
     </button>
   ) : (
     <div ref={droppable.setNodeRef} className={tile}>
-      <Plus size={14} aria-hidden />
+      {face}
     </div>
   );
 }
