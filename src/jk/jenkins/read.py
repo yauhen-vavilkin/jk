@@ -19,6 +19,25 @@ _DEFS_TREE = "property[parameterDefinitions[name,type,defaultParameterValue[valu
 _BUILD_TREE = "number,queueId,building,result,timestamp,duration,estimatedDuration,url"
 
 
+def _log_queue_item(path: str, raw: dict[str, Any]) -> None:
+    """Log what a queue item says about itself, field by field.
+
+    A fixed list of fields, never the whole answer: the item's `params` may hold
+    a password, and a raw Jenkins body never reaches the log (spec.md section 14).
+    """
+    executable = raw.get("executable") or {}
+    LOG.info(
+        "queue item %s: kind=%s why=%r blocked=%s stuck=%s cancelled=%s build=%s",
+        path,
+        str(raw.get("_class", "?")).rsplit(".", 1)[-1],
+        str(raw.get("why"))[:200],
+        raw.get("blocked"),
+        raw.get("stuck"),
+        raw.get("cancelled", False),
+        executable.get("number"),
+    )
+
+
 class JenkinsReader:
     """Read-only access to a Jenkins controller."""
 
@@ -81,6 +100,7 @@ class JenkinsReader:
         """
         path = urlparse(queue_url).path.rstrip("/")
         raw = await self._get(f"{path}/api/json")
+        _log_queue_item(path, raw)
         return QueueInfo.from_json(raw)
 
     async def recent_builds(self, rest_path: str, *, limit: int = 30) -> list[BuildInfo]:
