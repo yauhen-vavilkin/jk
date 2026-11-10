@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { ExternalLink, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { Condition, Flow, Preset, Step } from "@/api/types";
 import CardValuesBlock from "@/components/ui/CardValuesBlock";
@@ -65,8 +65,7 @@ export function StepCardBody({
   // Held ones too: a step added to a running flow can be taken off before its review.
   const removable = planned && canChange && onRemove !== undefined;
   const asked = askedGiven ?? step.summary.filter((item) => item.per_run).map((item) => item.name);
-  // A value asked at launch belongs to this run, not to the shape of the flow,
-  // so a flow that is built and waiting still offers to fill it.
+  // A value asked at launch belongs to this run, not to the shape of the flow.
   const answerable = draft && onFillValues !== undefined && asked.length > 0;
   const unfilled = planned ? asked.filter((name) => !(step.run_values[name] ?? "").trim()) : [];
   const empty = unfilled.length;
@@ -74,6 +73,11 @@ export function StepCardBody({
   // A draft takes a removed step back with Undo; a flow that started may reach
   // that place at any moment, so there the card asks first.
   const [confirming, setConfirming] = useState(false);
+  const removeButton = useRef<HTMLButtonElement>(null);
+  // The card stands for a place, not a job: when another job takes this place,
+  // the question asked about the one before must not be answered for it.
+  const identity = `${step.preset_id}@${step.added_at}`;
+  useEffect(() => setConfirming(false), [identity]);
 
   return (
     <>
@@ -107,6 +111,7 @@ export function StepCardBody({
           {/* Beside the status, never over it; the hit area is wider than the icon. */}
           {removable && (
             <button
+              ref={removeButton}
               type="button"
               title="Remove step"
               aria-label="Remove step"
@@ -149,7 +154,10 @@ export function StepCardBody({
               setConfirming(false);
               onRemove?.();
             }}
-            onCancel={() => setConfirming(false)}
+            onCancel={() => {
+              setConfirming(false);
+              removeButton.current?.focus();
+            }}
           />
         </span>
       )}
@@ -272,7 +280,7 @@ export default function StepCard({
   onFillValues: () => void;
 }) {
   const movable = step.state === "planned" && canChangeSteps(flow);
-  // While a flow is edited a card is also a place: a saved job dropped on it
+  // In a draft a card is also a place: a saved job dropped on it
   // takes its number, and this card and the ones after it move aside.
   const place = flow.status === "draft" && movable;
   const sortable = useSortable({

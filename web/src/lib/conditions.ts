@@ -27,7 +27,8 @@ export const CONDITION_COLOUR: Record<Condition, { text: string }> = {
   unless_failure: { text: "text-dim" },
   after_success: { text: "text-ok" },
   always: { text: "text-accent" },
-  after_failure: { text: "text-warn" },
+  // A plan, not a failure: red is kept for what went wrong.
+  after_failure: { text: "text-key" },
 };
 
 export const CONDITION_ORDER: Condition[] = [

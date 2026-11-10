@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { api } from "@/api/client";
+import { keys } from "@/api/queries";
 import type { Flow } from "@/api/types";
 import Board from "./Board";
 
@@ -74,15 +75,27 @@ const draftOf = (names: string[]) =>
     started_at: null, finished_at: null, failed_at_position: null, estimate_ms: null, result: null,
   }) as unknown as Flow;
 
+const presetOf = (name: string, drift: unknown = null) => ({
+  id: `p-${name}`, name, operation: "build", job_path: `folder/${name}`, job_url: "", destructive: false,
+  summary_params: [], params: {}, definitions: [], drift,
+});
+
+/** The board over `flows`, with a saved job behind each step name in `jobs`. */
+function serve(flows: Flow[], jobs = [presetOf("Build"), presetOf("Deploy")]) {
+  vi.spyOn(api, "get").mockImplementation(((path: string) =>
+    Promise.resolve(path === "/flows" ? flows : path === "/presets" ? jobs : [])) as typeof api.get);
+}
+
 function showBoard() {
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}>
     <RouterProvider router={createMemoryRouter([{ path: "/", element: <Board /> }])} />
   </QueryClientProvider>);
+  return client;
 }
 
 it("removes a step of a draft at once and puts it back as it was on Undo", async () => {
-  vi.spyOn(api, "get").mockImplementation(((path: string) =>
-    Promise.resolve(path === "/flows" ? [draftOf(["Build", "Deploy"])] : [])) as typeof api.get);
+  serve([draftOf(["Build", "Deploy"])]);
   const remove = vi.spyOn(api, "delete").mockResolvedValue(draftOf(["Build"]));
   const post = vi.spyOn(api, "post").mockResolvedValue(draftOf(["Build", "Deploy"]));
   showBoard();
@@ -90,7 +103,7 @@ it("removes a step of a draft at once and puts it back as it was on Undo", async
   const buttons = await screen.findAllByRole("button", { name: "Remove step" });
   fireEvent.click(buttons[1] as HTMLElement);
 
-  expect(await screen.findByText('Removed step 2 "Deploy"')).toBeInTheDocument();
+  expect(await screen.findByText('Removed step 2 "Deploy" from "Draft"')).toBeInTheDocument();
   expect(remove).toHaveBeenCalledWith("/flows/f/steps/f:1");
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   await waitFor(() =>
@@ -104,16 +117,72 @@ it("removes a step of a draft at once and puts it back as it was on Undo", async
 });
 
 it("moves a step and moves it back on Undo", async () => {
-  vi.spyOn(api, "get").mockImplementation(((path: string) =>
-    Promise.resolve(path === "/flows" ? [draftOf(["Build", "Deploy"])] : [])) as typeof api.get);
+  serve([draftOf(["Build", "Deploy"])]);
   const patch = vi.spyOn(api, "patch").mockResolvedValue(draftOf(["Deploy", "Build"]));
   showBoard();
 
   fireEvent.click(await screen.findByRole("button", { name: "Step 2, Deploy" }));
   fireEvent.click(await screen.findByRole("button", { name: "Move to step 1" }));
 
-  expect(await screen.findByText('Moved "Deploy" to step 1')).toBeInTheDocument();
+  expect(await screen.findByText('Moved "Deploy" to step 1 in "Draft"')).toBeInTheDocument();
   expect(patch).toHaveBeenCalledWith("/flows/f/steps/f:1", { position: 0 });
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   await waitFor(() => expect(patch).toHaveBeenLastCalledWith("/flows/f/steps/f:0", { position: 1 }));
+});
+
+it("does nothing on Undo once something else changed the flow, as it would move another step", async () => {
+  serve([draftOf(["Build", "Deploy"])]);
+  const patch = vi.spyOn(api, "patch").mockResolvedValue(draftOf(["Deploy", "Build"]));
+  const client = showBoard();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Step 2, Deploy" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Move to step 1" }));
+  expect(await screen.findByText('Moved "Deploy" to step 1 in "Draft"')).toBeInTheDocument();
+  // A saved job dropped before it, in the meantime: every place after it moved.
+  act(() => client.setQueryData(keys.flows, [draftOf(["Build", "Deploy", "Build"])]));
+  expect(await screen.findByRole("button", { name: "Step 3, Build" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+  expect(await screen.findByText("The flow changed after that, so Undo did nothing.")).toBeInTheDocument();
+  expect(patch).toHaveBeenCalledTimes(1);
+});
+
+it("removes one step on a double press of its remove button", async () => {
+  serve([draftOf(["Build", "Deploy", "Build"])]);
+  const remove = vi.spyOn(api, "delete").mockResolvedValue(draftOf(["Build", "Build"]));
+  showBoard();
+
+  const buttons = await screen.findAllByRole("button", { name: "Remove step" });
+  fireEvent.click(buttons[1] as HTMLElement);
+  fireEvent.click(buttons[1] as HTMLElement);
+
+  expect(await screen.findByText('Removed step 2 "Deploy" from "Draft"')).toBeInTheDocument();
+  expect(remove).toHaveBeenCalledTimes(1);
+});
+
+it("offers no Undo for a step whose saved job Jenkins changed, as it could not be added back", async () => {
+  serve([draftOf(["Build", "Deploy"])], [presetOf("Build"), presetOf("Deploy", { entries: [] })]);
+  const remove = vi.spyOn(api, "delete").mockResolvedValue(draftOf(["Build"]));
+  showBoard();
+
+  const buttons = await screen.findAllByRole("button", { name: "Remove step" });
+  fireEvent.click(buttons[1] as HTMLElement);
+
+  await waitFor(() => expect(remove).toHaveBeenCalledWith("/flows/f/steps/f:1"));
+  expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+});
+
+it("asks first in a flow that started, and offers no Undo after", async () => {
+  const running = { ...draftOf(["Build", "Deploy"]), status: "running", current_position: 0 } as Flow;
+  serve([running]);
+  const remove = vi.spyOn(api, "delete").mockResolvedValue({ ...running, steps: running.steps.slice(0, 1) });
+  showBoard();
+
+  const buttons = await screen.findAllByRole("button", { name: "Remove step" });
+  fireEvent.click(buttons[buttons.length - 1] as HTMLElement);
+  expect(remove).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+
+  await waitFor(() => expect(remove).toHaveBeenCalledWith("/flows/f/steps/f:1"));
+  expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
 });

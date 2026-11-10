@@ -194,6 +194,8 @@ function Facts({ attention }: { attention: Attention | undefined }) {
 function stateClass(state: string): string {
   if (state === "RUNNING") return "text-info";
   if (state === "SUCCESS") return "text-ok";
+  // UNSTABLE and ABORTED are said quietly, as on the board.
+  if (state === "UNSTABLE" || state === "ABORTED") return "text-key";
   return "text-warn";
 }
 

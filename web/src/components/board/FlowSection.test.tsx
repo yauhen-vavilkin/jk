@@ -41,24 +41,24 @@ const planned = (position: number, state = "planned") =>
     summary: [], held: false, build_number: null, abort_state: null,
   }) as unknown as Step;
 
-function sectionOf(status: Flow["status"], onRemoveStep: (step: Step) => void) {
+function sectionOf(status: Flow["status"], onRemoveStep: (step: Step) => void, second = planned(1)) {
   const first = planned(0, status === "draft" ? "planned" : "running");
-  const flow = { id: "f", name: "Flow", status, steps: [first, planned(1)] } as Flow;
+  const flow = { id: "f", name: "Flow", status, steps: [first, second] } as Flow;
   const nothing = () => {};
-  render(
+  return (
     <MemoryRouter><DndContext><FlowSection
       flow={flow} canReview onReview={nothing} onStop={nothing} onResume={nothing}
       onRename={nothing} onSaveAsFlow={nothing} onDelete={nothing} onOpenAttention={nothing}
       onCondition={nothing} onRemoveStep={onRemoveStep} onFillValues={nothing} askedOf={() => []}
       onReviewHeld={nothing} onRunAgain={nothing} onEdit={nothing} onDuplicate={nothing}
       onPin={nothing} busy={false} keptAs={null} saving={false} insertIndex={null}
-    /></DndContext></MemoryRouter>,
+    /></DndContext></MemoryRouter>
   );
 }
 
 it("asks on the card before a step of a running flow is removed", () => {
   const removed: string[] = [];
-  sectionOf("running", (step) => removed.push(step.id));
+  render(sectionOf("running", (step) => removed.push(step.id)));
 
   fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
   expect(screen.getByText("Remove step 2?")).toBeInTheDocument();
@@ -67,6 +67,7 @@ it("asks on the card before a step of a running flow is removed", () => {
   fireEvent.click(screen.getByRole("button", { name: "Keep" }));
   expect(removed).toEqual([]);
   expect(screen.queryByText("Remove step 2?")).toBeNull();
+  expect(screen.getByRole("button", { name: "Remove step" })).toHaveFocus();
 
   fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
   const question = screen.getByText("Remove step 2?").parentElement as HTMLElement;
@@ -76,10 +77,21 @@ it("asks on the card before a step of a running flow is removed", () => {
 
 it("removes a step of a draft at once, without a question", () => {
   const removed: string[] = [];
-  sectionOf("draft", (step) => removed.push(step.id));
+  render(sectionOf("draft", (step) => removed.push(step.id)));
 
   fireEvent.click(screen.getAllByRole("button", { name: "Remove step" })[1] as HTMLElement);
 
   expect(removed).toEqual(["f:1"]);
   expect(screen.queryByText(/Remove step \d\?/)).toBeNull();
+});
+
+it("drops the question when another job takes the card's place", () => {
+  const { rerender } = render(sectionOf("running", () => {}));
+  fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
+  expect(screen.getByText("Remove step 2?")).toBeInTheDocument();
+
+  const other = { ...planned(1), preset_id: "p9", preset_name: "Job 9" } as Step;
+  rerender(sectionOf("running", () => {}, other));
+
+  expect(screen.queryByText("Remove step 2?")).toBeNull();
 });

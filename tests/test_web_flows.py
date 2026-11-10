@@ -242,7 +242,7 @@ async def test_a_run_that_ended_holds_its_name_until_it_leaves_the_board(client,
     assert after["name"] == "Nightly"
 
 
-async def test_a_flow_is_duplicated_with_a_free_name_and_open_to_change(client) -> None:
+async def test_a_flow_is_duplicated_as_a_draft_with_a_free_name(client) -> None:
     preset = await make_preset(client)
     flow = (
         await client.post(
@@ -257,6 +257,7 @@ async def test_a_flow_is_duplicated_with_a_free_name_and_open_to_change(client) 
     assert (copy["name"], again["name"]) == ("Nightly copy", "Nightly copy 2")
     assert [step["preset_id"] for step in copy["steps"]] == [preset["id"]]
     assert [step["state"] for step in copy["steps"]] == ["planned"]
+    assert copy["status"] == "draft"
     # A copy is a thing of its own: saving it cannot overwrite the template.
     assert kept is not None
     assert copy["saved_flow_id"] is None
@@ -751,22 +752,26 @@ async def test_a_step_moved_while_confirm_reads_jenkins_releases_nothing(
 async def test_a_step_moved_while_resume_reads_jenkins_resumes_nothing(
     client, services, jenkins
 ) -> None:
+    # Held steps are not frozen yet: only the comparison keeps one job's reviewed
+    # body off the other when they swap places during the review.
     first, second = await make_cypress(client), await make_preset(client)
-    jenkins.result = "FAILURE"
-    flow = (
-        await client.post(
-            "/api/flows",
-            json={"steps": [{"preset_id": first["id"]}] * 2 + [{"preset_id": second["id"]}]},
-        )
-    ).json()
-    await start_reviewed(
-        client, flow["id"], {flow["steps"][2]["id"]: {"FOLIO_BRANCH": "example-feature"}}
+    jenkins.building = True
+    flow = (await client.post("/api/flows", json={"steps": [{"preset_id": first["id"]}]})).json()
+    await start_reviewed(client, flow["id"])
+    await client.post(f"/api/flows/{flow['id']}/steps", json={"preset_id": first["id"]})
+    await client.post(
+        f"/api/flows/{flow['id']}/steps",
+        json={"preset_id": second["id"], "run_values": {"FOLIO_BRANCH": "example-feature"}},
     )
+    await client.post(f"/api/flows/{flow['id']}/stop", json={"abort_current": False})
+    jenkins.building = False
     await services.supervisor.wait(flow["id"])
-    assert (await listed(client, "flows", flow["id"]))["failed_at_position"] == 1
     review = await client.post(
         f"/api/flows/{flow['id']}/review", json={"scope": "resume", "from_position": 1}
     )
+    assert review.json()["ok"], review.json()
+    sent, fixed = submits(jenkins), frozen(services, flow["id"])
+    assert fixed[1:] == [False, False]
     jenkins.on_definitions = lambda: services.flows.move_step(flow["id"], 2, 1)
 
     refused = await client.post(
@@ -776,7 +781,9 @@ async def test_a_step_moved_while_resume_reads_jenkins_resumes_nothing(
 
     assert refused.status_code == 409, refused.json()
     assert refused.json()["error"]["code"] == "flow_changed", refused.json()
-    assert submits(jenkins) == 1
+    await services.supervisor.wait(flow["id"])
+    assert submits(jenkins) == sent
+    assert frozen(services, flow["id"]) == fixed
 
 
 async def test_a_started_flow_cannot_be_started_again(client, services) -> None:

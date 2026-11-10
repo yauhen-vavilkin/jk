@@ -41,6 +41,6 @@ describe("what a condition looks like", () => {
     expect(CONDITION_COLOUR.unless_failure.text).toBe("text-dim");
     expect(CONDITION_COLOUR.after_success.text).toBe("text-ok");
     expect(CONDITION_COLOUR.always.text).toBe("text-accent");
-    expect(CONDITION_COLOUR.after_failure.text).toBe("text-warn");
+    expect(CONDITION_COLOUR.after_failure.text).toBe("text-key");
   });
 });

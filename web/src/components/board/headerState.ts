@@ -62,7 +62,7 @@ function failingStep(flow: Flow): Step | undefined {
 
 /**
  * `unfilled`: the values still empty, and `changed`: the saved jobs Jenkins
- * changed, which keep a built draft from being ready.
+ * changed, which keep a draft from being ready.
  */
 export function headerStateOf(flow: Flow, unfilled = 0, changed = 0): HeaderState {
   switch (flow.status) {
@@ -121,8 +121,8 @@ export function headerStateOf(flow: Flow, unfilled = 0, changed = 0): HeaderStat
           };
     default:
       // A draft cannot run yet, or is ready to run, and it says which; the button
-      // beside it says what is missing. Whether it is kept as a saved flow is the
-      // bookmark button's to say.
+      // beside it says what is missing. Whether it is kept as a saved flow is
+      // Save's to say, in More actions.
       return {
         glyph: "ready",
         word: unfilled > 0 || changed > 0 ? "NOT READY" : "READY",

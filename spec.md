@@ -296,8 +296,8 @@ that only adds tables keeps the run history:
 - `steps.job_config_id`, `job_name`, `job_path`, and `destructive` snapshot the
   saved job when the step is added; `job_config_id` holds the saved job's id;
   the columns `runs.kind`, `runs.source_id`, `runs.state`, `steps.operation`,
-  `steps.result`, `presets.description`, `saved_flows.description` and
-  `jenkins_jobs.fetched_at` are left over from earlier releases and JK reads
+  `steps.result`, `presets.description`, `saved_flows.description`,
+  `jenkins_jobs.fetched_at` and `flow_meta.editing` are left over from earlier releases and JK reads
   none of them; they stay because dropping a column from a database that already
   holds history would need a migration, and JK has none: opening the database
   only creates the tables and columns that are missing, and turns a step an

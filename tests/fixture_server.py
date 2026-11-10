@@ -358,7 +358,7 @@ def seed(services) -> None:
     add(draft, snapshot, run_values={"FOLIO_BRANCH": "example-feature"})
     add(draft, diku, Condition.AFTER_SUCCESS)
 
-    # One that is built and waiting, so the board shows both sides of the pencil.
+    # One that is ready to run: every value is filled.
     ready = flows.create(name="Nightly Cypress on trillium", created_at=next(made))
     add(ready, trillium)
     add(ready, four, Condition.AFTER_SUCCESS)

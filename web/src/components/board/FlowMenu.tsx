@@ -75,7 +75,13 @@ export default function FlowMenu({
           <MenuItem
             onClick={choose(items.onSave)}
             disabled={items.save === "saving" || items.save === "saved"}
-            why={items.save === "saved" && items.keptName ? `As "${items.keptName}"` : undefined}
+            why={
+              items.save === "saved" && items.keptName
+                ? `As "${items.keptName}"`
+                : items.save === "changed"
+                  ? "Has changes not saved yet"
+                  : undefined
+            }
           >
             {items.save === "saving" ? SAVING : items.save === "saved" ? SAVED : SAVE}
           </MenuItem>

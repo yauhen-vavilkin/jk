@@ -66,6 +66,13 @@ import { visibleFlows } from "./visibleFlows";
 
 /** How long Remove can be undone; a draft is deleted only then. */
 const UNDO_MS = 8000;
+/** A second press of a step's remove button on the same flow sooner than this is the same press, not a second remove. */
+const DOUBLE_PRESS_MS = 500;
+const UNDO_TOO_LATE = "The flow changed after that, so Undo did nothing.";
+
+/** What a step Undo depends on: the flow's status and which job stands where. */
+const shapeOf = (flow: Flow) =>
+  [flow.status, ...flow.steps.map((step) => `${step.preset_id}@${step.added_at}:${step.condition}`)].join("|");
 /** How long a flow the board was opened at stays lit. */
 const HIGHLIGHT_MS = 1500;
 
@@ -177,6 +184,11 @@ export default function Board() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   // The saved flow Save just kept, scrolled into view in the column.
   const [savedId, setSavedId] = useState<string | null>(null);
+  // The flows as the cache holds them now, for an Undo offered a while ago.
+  const latestFlows = useRef(flows.data);
+  latestFlows.current = flows.data;
+  // The last step removed, so a double press does not remove its neighbour too.
+  const lastRemove = useRef<{ flowId: string; at: number } | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const visible = visibleFlows(flows.data ?? []).filter((flow) => !hidden.includes(flow.id));
@@ -355,7 +367,7 @@ export default function Board() {
     });
   }
 
-  /** A saved job added to a flow (at `index`, while it is edited), or as a new flow (null). */
+  /** A saved job added to a flow (at `index`, in a draft), or as a new flow (null). */
   async function addPreset(presetId: string, flowId: string | null, index?: number) {
     if (flowId === null) {
       const preset = presetById.get(presetId);
@@ -481,12 +493,21 @@ export default function Board() {
     );
   }
 
-  /** The Undo line for a change to a flow's steps; a draft removed before it is deleted now. */
-  function offerStepUndo(text: string, undo: () => void) {
+  /**
+   * The Undo line for a change to a flow's steps; a draft removed before it is
+   * deleted now. Steps are known by their place, so once anything else changed
+   * the flow, the Undo would land on another step: then it does nothing.
+   */
+  function offerStepUndo(text: string, after: Flow, undo: () => void) {
     window.clearTimeout(noticeTimer.current);
     setNotice(null);
     deleteNow();
-    offerUndo(text, undo);
+    const shape = shapeOf(after);
+    offerUndo(text, () => {
+      const now = latestFlows.current?.find((item) => item.id === after.id);
+      if (!now || shapeOf(now) !== shape) return refuse(UNDO_TOO_LATE);
+      undo();
+    });
   }
 
   /**
@@ -499,11 +520,17 @@ export default function Board() {
     const flow = visible.find((item) => item.steps.some((step) => step.id === stepId));
     const step = flow?.steps.find((item) => item.id === stepId);
     if (!flow || !step) return;
+    const pressed = Date.now();
+    const last = lastRemove.current;
+    if (last && last.flowId === flow.id && pressed - last.at < DOUBLE_PRESS_MS) return;
+    lastRemove.current = { flowId: flow.id, at: pressed };
     const draft = flow.status === "draft";
     if (draft && flow.steps.length === 1) return onDelete(flow);
-    await removeStep.mutateAsync({ flowId: flow.id, stepId });
-    if (!draft) return;
-    offerStepUndo(`Removed step ${step.position + 1} "${step.preset_name}"`, () =>
+    const after = await removeStep.mutateAsync({ flowId: flow.id, stepId });
+    // A saved job that is gone or that Jenkins changed cannot be added back.
+    const preset = presetById.get(step.preset_id);
+    if (!draft || !preset || preset.drift) return;
+    offerStepUndo(`Removed step ${step.position + 1} "${step.preset_name}" from "${flow.name}"`, after, () =>
       addStep.mutate(
         {
           flowId: flow.id,
@@ -524,7 +551,7 @@ export default function Board() {
     requestAnimationFrame(() =>
       document.querySelector<HTMLElement>(`[data-step-id="${moved.id}"]`)?.focus({ preventScroll: true }),
     );
-    offerStepUndo(`Moved "${step.preset_name}" to step ${to + 1}`, () =>
+    offerStepUndo(`Moved "${step.preset_name}" to step ${to + 1} in "${flow.name}"`, after, () =>
       patchStep.mutate({ flowId: flow.id, stepId: moved.id, patch: { position: step.position } }, said),
     );
   }

@@ -98,7 +98,7 @@ The panel has three pages:
   steps are added, reordered and removed, and a click on its name renames it.
   It says **READY** when nothing is missing, and **Run** opens its review. If the
   flow changes while that review is being checked against Jenkins, nothing is
-  sent and the review is asked for again.
+  sent, and a line above the board asks you to review it again.
 
   Removing or moving a step of a draft happens at once, and a line above the
   board offers **Undo** for a few seconds, which puts the step back as it was.
@@ -126,9 +126,9 @@ The panel has three pages:
   JK is offline, reconnect and cancel again. After a reload, the READY copy can
   be reviewed or deleted normally; remove the original from the Board separately.
 
-  A flow's header has one main button for what comes next -- **Run**,
-  **Run again**, **Resolve step N** or **Review added steps** -- with **Stop**
-  or **Resume** beside it. Everything else is behind **More actions**, the three-dot button:
+  A flow's header has one main button for what comes next -- usually **Run**,
+  **Run again**, **Resolve step N** or **Review added steps** -- with **Stop**,
+  **Resume** or **Resume from step N** beside it. Everything else is behind **More actions**, the three-dot button:
   **Pin**, **Save**, **Duplicate**, **Edit a copy** on a flow that ended, and
   **Remove**. **Edit a copy** -- or a saved job dropped on an ended flow --
   replaces it with a copy to be changed first. **Duplicate** makes a second

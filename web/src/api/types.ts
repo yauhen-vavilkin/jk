@@ -163,7 +163,6 @@ export interface Flow {
   saved_flow_id: string | null;
   /** Kept at the top of the board. */
   pinned: boolean;
-  /** The user is still building it: it can be changed, but not run. Only a draft is. */
   /** What is left to run, from Jenkins' estimates; null unless every step left has one. */
   estimate_ms: number | null;
 }

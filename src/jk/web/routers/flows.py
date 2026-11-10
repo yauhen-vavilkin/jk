@@ -232,8 +232,8 @@ async def patch_step(
 ) -> schemas.Flow:
     services = services_of(request)
     _, meta = _flow(services, flow_id)
-    # A value asked at launch belongs to this run, not to the shape of the flow,
-    # so a flow that is built and waiting still takes one.
+    # A value asked at launch belongs to this run, not to the shape of the flow:
+    # it is taken whenever the step is not frozen yet.
     position = _position(flow_id, step_id)
     if services.supervisor.is_sending(flow_id):
         raise errors.flow_sending()
@@ -410,7 +410,7 @@ def _step_order(services: Services, flow_id: str) -> tuple:
     bodies by position. Comparing this before and after the await makes sure
     each body still lands on the step it was reviewed for.
     """
-    _, meta = services.flows.get(flow_id)
+    _, meta = _flow(services, flow_id)
     return tuple(
         (
             position,
@@ -453,9 +453,8 @@ async def rerun_flow(
     """The same flow as a fresh copy, optionally retaining the original on the Board.
 
     `Run again` reviews the copy at once; editing a copy stops at the draft. Either
-    way it never
-    refuses: a saved job Jenkins changed, and one that is gone, come along as they
-    are, to be replaced here. Review says so before anything is sent.
+    way it never refuses: a saved job Jenkins changed, and one that is gone, come
+    along as they are, to be replaced here. Review says so before anything is sent.
     """
     services = services_of(request)
     run, meta = _flow(services, flow_id)
