@@ -25,7 +25,7 @@ The palette is the eleven tokens of `palette` plus the six surfaces of
 | `accent` | `#e0a458` | the current selection, values the user chose |
 | `ok` | `#7fa86a` | `SUCCESS`, valid state |
 | `info` | `#6f9dbd` | `RUNNING`, links, progress fill |
-| `warn` | `#d1705c` | destructive, `FAILURE`, `UNSTABLE`, `ABORTED`, needs attention |
+| `warn` | `#d1705c` | what needs action now: needs attention, `FAILURE` and the step a flow failed at, a refusal or error, `destructive` in the review window |
 | `link_hover` | `#8fb8d4` | hovered link |
 | `track` | `#2e2e33` | hairlines and the unfilled part of a progress bar; the web calls it `hairline` |
 
@@ -40,8 +40,12 @@ The palette is the eleven tokens of `palette` plus the six surfaces of
 
 Rules:
 
-- **Colour carries one meaning.** `warn` means "this can hurt or it went wrong" —
-  never decoration. `accent` marks the current selection and what the user typed;
+- **Colour carries one meaning.** `warn` means "this needs your action now" —
+  never decoration. A screen with many red words teaches the eye to skip them,
+  so `UNSTABLE` and `ABORTED` are written in `key`, `destructive` on a card is
+  `dim` (it turns `warn` in the review window, just before the jobs are sent),
+  and "Jenkins changed it · review" on a card is a `key` link; the same change
+  turns `warn` where it refuses something. `accent` marks the current selection and what the user typed;
   if everything is accented, nothing is.
   A step card never gets a dashed amber outline: it keeps its usual border, and
   `Fill N values` has a thin solid border and amber text.

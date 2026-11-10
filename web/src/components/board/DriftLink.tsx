@@ -9,7 +9,7 @@ export function DriftLink({ presetId, title }: { presetId: string; title?: strin
       title={title}
       // The card around it opens its own details on a click; this one only leaves.
       onClick={(event) => event.stopPropagation()}
-      className="self-start text-[14px] text-warn underline underline-offset-2"
+      className="self-start text-[14px] text-key underline underline-offset-2"
     >
       Jenkins changed it · review
     </Link>

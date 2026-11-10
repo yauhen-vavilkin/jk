@@ -130,7 +130,7 @@ export function StepCardBody({
         <span title={step.preset_name} className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-medium">
           {step.preset_name}
         </span>
-        {step.destructive && <DestructiveMark className="ml-auto flex-none" />}
+        {step.destructive && <DestructiveMark tone="text-dim" className="ml-auto flex-none" />}
       </div>
 
       {confirming && removable && (

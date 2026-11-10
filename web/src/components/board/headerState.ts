@@ -91,12 +91,15 @@ export function headerStateOf(flow: Flow, unfilled = 0, changed = 0): HeaderStat
         };
       }
       const failing = failingStep(flow);
+      const word = failing
+        ? `${failing.state === "ABORTED" ? "ABORTED" : "FAILURE"} at step ${failing.position + 1}`
+        : (flow.result ?? "FAILURE");
+      // Red is kept for a failure; a stop someone chose is said, not alarmed.
+      const aborted = failing ? failing.state === "ABORTED" : flow.result === "ABORTED";
       return {
         glyph: "alert",
-        word: failing
-          ? `${failing.state === "ABORTED" ? "ABORTED" : "FAILURE"} at step ${failing.position + 1}`
-          : (flow.result ?? "FAILURE"),
-        tone: "text-warn",
+        word,
+        tone: aborted ? "text-key" : "text-warn",
         pulse: false,
       };
     }
@@ -113,7 +116,7 @@ export function headerStateOf(flow: Flow, unfilled = 0, changed = 0): HeaderStat
         : {
             glyph: "alert",
             word: flow.result,
-            tone: "text-warn",
+            tone: flow.result === "FAILURE" ? "text-warn" : "text-key",
             pulse: false,
           };
     default:

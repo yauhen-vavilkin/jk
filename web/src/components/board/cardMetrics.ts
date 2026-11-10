@@ -26,10 +26,12 @@ export function statusOf(step: Step, flowStatus?: FlowStatus): StatusWord {
   switch (step.state) {
     case "SUCCESS":
       return { glyph: "check", glyphClass: "text-ok", word: "SUCCESS", wordClass: "text-ok", pulse: false };
-    case "UNSTABLE":
     case "FAILURE":
-    case "ABORTED":
       return { glyph: null, glyphClass: "", word: step.state, wordClass: "text-warn", pulse: false };
+    // The build ended without failing outright: the word says it, quietly.
+    case "UNSTABLE":
+    case "ABORTED":
+      return { glyph: null, glyphClass: "", word: step.state, wordClass: "text-key", pulse: false };
     case "rejected":
       return { glyph: null, glyphClass: "", word: "not sent", wordClass: "text-warn", pulse: false };
     case "running":

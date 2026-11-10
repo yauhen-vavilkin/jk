@@ -62,6 +62,20 @@ describe("headerStateOf", () => {
     );
   });
 
+  it("keeps red for a failure, and says ABORTED and UNSTABLE quietly", () => {
+    const failedAt = (state: Step["state"]) =>
+      headerStateOf(flow({ status: "failed", failed_at_position: 1, steps: [step({ state }), step({ position: 1 })] }));
+    expect(failedAt("FAILURE").tone).toBe("text-warn");
+    expect(failedAt("rejected").tone).toBe("text-warn");
+    expect(failedAt("ABORTED").tone).toBe("text-key");
+
+    const finished = (result: Flow["result"]) => headerStateOf(flow({ status: "finished", result }));
+    expect([finished("FAILURE").word, finished("FAILURE").tone]).toEqual(["FAILURE", "text-warn"]);
+    expect([finished("UNSTABLE").word, finished("UNSTABLE").tone]).toEqual(["UNSTABLE", "text-key"]);
+    expect([finished("ABORTED").word, finished("ABORTED").tone]).toEqual(["ABORTED", "text-key"]);
+    expect(headerStateOf(flow({ status: "needs_attention" })).tone).toBe("text-warn");
+  });
+
   it("says ENDED, not FAILURE, for a flow the user ended from Needs attention", () => {
     const steps = [step({ state: "SUCCESS" }), step({ position: 1, state: "closed" })];
     const state = headerStateOf(flow({ status: "failed", result: "FAILURE", steps }));

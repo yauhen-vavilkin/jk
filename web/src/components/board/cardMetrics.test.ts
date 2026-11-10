@@ -25,4 +25,12 @@ describe("statusOf", () => {
     }
     expect(statusOf(step({ state: "SUCCESS" }), "failed").word).toBe("SUCCESS");
   });
+
+  it("keeps red for a failure, and writes UNSTABLE and ABORTED quietly", () => {
+    expect(statusOf(step({ state: "FAILURE" })).wordClass).toBe("text-warn");
+    expect(statusOf(step({ state: "rejected" })).wordClass).toBe("text-warn");
+    expect(statusOf(step({ state: "needs_attention" })).wordClass).toBe("text-warn");
+    expect(statusOf(step({ state: "UNSTABLE" }))).toMatchObject({ word: "UNSTABLE", wordClass: "text-key" });
+    expect(statusOf(step({ state: "ABORTED" }))).toMatchObject({ word: "ABORTED", wordClass: "text-key" });
+  });
 });

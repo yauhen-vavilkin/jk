@@ -30,7 +30,7 @@ export function PresetCardBody({ preset }: { preset: Preset }) {
         <span title={preset.name} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-medium">
           {preset.name}
         </span>
-        {preset.destructive && <DestructiveMark className="flex-none" />}
+        {preset.destructive && <DestructiveMark tone="text-dim" className="flex-none" />}
       </div>
 
       <CardValuesBlock values={presetCardValues(preset)} />
