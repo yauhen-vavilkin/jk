@@ -13,6 +13,8 @@ from jk.engine.messages import (
     CONNECTION_FAILED_WHILE_SENDING,
     JK_STOPPED_WHILE_SENDING,
     KEPT_LAST_KNOWN_STATE,
+    NEVER_STARTED,
+    NOTHING_RAN,
     UNKNOWN_SUBMISSION_REASON,
 )
 from jk.engine.reconcile import find_candidates
@@ -30,14 +32,17 @@ async def build(services: Services, flow_id: str, position: int) -> schemas.Atte
     stored = run.steps[position]
     candidates, lookup_error = await _candidates(services, flow_id, position)
 
-    never_again = (
-        UNKNOWN_SUBMISSION_REASON
-        if run.error_kind == "ambiguous_submission"
-        else KEPT_LAST_KNOWN_STATE
-    )
+    nothing_ran = bool(stored.note and stored.note.startswith(NEVER_STARTED))
+    if nothing_ran:
+        never_again = NOTHING_RAN
+    elif run.error_kind == "ambiguous_submission":
+        never_again = UNKNOWN_SUBMISSION_REASON
+    else:
+        never_again = KEPT_LAST_KNOWN_STATE
     return schemas.Attention(
         reason=_reason(stored.note or run.error_message, stored.job_name),
         never_again_text=never_again,
+        nothing_ran=nothing_ran,
         job_path=stored.job_path,
         sent_at=presenter.moment(stored.submitted_at),
         next_build_number=stored.search_from_build_number,

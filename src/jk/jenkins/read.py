@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from jk.errors import JenkinsAuthError, JenkinsUnavailable, TargetNotFound
+from jk.jenkins.client import LOG
 from jk.jenkins.models import BuildInfo, ParameterDefinition, QueueInfo, scalar_to_str
 
 _DEFS_TREE = "property[parameterDefinitions[name,type,defaultParameterValue[value],choices[*]]]"
@@ -28,6 +29,7 @@ class JenkinsReader:
         try:
             response = await self._client.get(path, params=params)
         except httpx.HTTPError as exc:
+            LOG.warning("GET %s failed before an answer: %r", path, exc)
             raise JenkinsUnavailable(f"cannot reach Jenkins: {exc}") from exc
         if response.status_code in (401, 403):
             raise JenkinsAuthError(

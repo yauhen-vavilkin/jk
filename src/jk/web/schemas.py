@@ -350,6 +350,7 @@ class AttentionCandidate(BaseModel):
 class Attention(BaseModel):
     reason: str
     never_again_text: str
+    nothing_ran: bool = False
     job_path: str
     sent_at: str | None
     next_build_number: int | None

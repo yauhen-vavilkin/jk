@@ -140,9 +140,11 @@ export default function NeedsAttention({
 
       <div className="flex items-center gap-5 border-t border-hairline px-7 pb-[22px] pt-4">
         <span className="max-w-[340px] text-[14px] leading-[1.5] text-dim">
-          {candidates.length > 0
-            ? "None yours? Check Jenkins before running again."
-            : "Check Jenkins before running again."}
+          {attention.data?.nothing_ran
+            ? "Jenkins made no build, so running again is safe."
+            : candidates.length > 0
+              ? "None yours? Check Jenkins before running again."
+              : "Check Jenkins before running again."}
         </span>
         <div className="flex-1" />
         {confirming ? (

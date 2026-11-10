@@ -259,6 +259,13 @@ Monitoring retries never create or repeat Jenkins builds. When a queue item
 or build can no longer be found, JK preserves the last known state, marks
 the run as requiring attention, and does not continue the flow.
 
+When a queue item is gone and no build matches it, JK reads the job's next
+build number once more. If it is still the number the job had before the request
+(`search_from_build_number`), Jenkins created no build: the panel says so and
+that running again is safe, and the user ends the flow and runs it again from
+History. JK still never resends the step itself. If the number cannot be read or
+has moved, the message stays the cautious one and the user checks Jenkins.
+
 ## 8. Storage
 
 Saved jobs, saved flows, and execution state remain local to the user's

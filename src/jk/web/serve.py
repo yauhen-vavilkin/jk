@@ -7,6 +7,7 @@ a second POST.
 
 from __future__ import annotations
 
+import logging
 import threading
 import webbrowser
 from pathlib import Path
@@ -18,6 +19,17 @@ from jk.state import open_private_file
 from jk.store.store import RunStore
 from jk.web.app import create_app
 from jk.web.deps import build_services
+
+
+def configure_logging() -> None:
+    """JK's own log lines (`jk.*`) go to stderr, which Docker shows as the logs."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger = logging.getLogger("jk")
+    logger.handlers[:] = [handler]
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
 
 DEFAULT_PORT = 8765
 HOST = "127.0.0.1"
@@ -59,6 +71,7 @@ def serve(
     )
     app = create_app(services, serve_static=serve_static)
 
+    configure_logging()
     address = url_of(port)
     marker_written = False
     try:

@@ -12,6 +12,23 @@ UNKNOWN_SUBMISSION_REASON = "JK will not send it again."
 
 KEPT_LAST_KNOWN_STATE = "JK kept the last known state and will not send anything again."
 
+#: How a step's note starts when Jenkins took the request but made no build for it.
+NEVER_STARTED = "Jenkins accepted the request but never started a build."
+
+#: What the panel adds to that note: nothing ran, so running it again is safe.
+NOTHING_RAN = (
+    "Nothing ran in Jenkins. End the flow, then run it again from History if you still need it."
+)
+
+
+def never_started_note(next_build_number: int) -> str:
+    """The note when the queue item is gone and the job's build counter did not move."""
+    return (
+        f"{NEVER_STARTED} The next build number is still {next_build_number}, "
+        "so no build was created."
+    )
+
+
 #: How a step's note starts when the connection failed while JK sent it; the error follows.
 CONNECTION_FAILED_WHILE_SENDING = "the connection failed while the request was being sent"
 

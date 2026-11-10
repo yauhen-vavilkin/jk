@@ -109,6 +109,38 @@ async def test_scan_with_no_matching_build_eventually_needs_attention(store, moc
     assert store.get_run(run_id).error_kind == "target_not_found"
 
 
+async def _poll_until_attention(store, mock_transport, next_number):
+    def handler(request):
+        if "/queue/item/" in request.url.path:
+            return httpx.Response(404, text="Not Found")
+        if request.url.params.get("tree") == "nextBuildNumber":
+            return httpx.Response(200, json={"nextBuildNumber": next_number})
+        return httpx.Response(200, json={"builds": []})
+
+    engine, client = engine_for(store, mock_transport, handler)
+    run_id = queued_run(store)
+    async with client:
+        for _attempt in range(3):
+            await engine.poll_step_once(run_id, 0)
+    return store.get_run(run_id)
+
+
+async def test_gone_queue_item_with_unmoved_build_counter_says_nothing_ran(store, mock_transport):
+    run = await _poll_until_attention(store, mock_transport, next_number=9929)
+
+    assert run.steps[0].state is StepState.NEEDS_ATTENTION
+    assert run.error_message == (
+        "Jenkins accepted the request but never started a build. "
+        "The next build number is still 9929, so no build was created."
+    )
+
+
+async def test_gone_queue_item_with_moved_build_counter_stays_cautious(store, mock_transport):
+    run = await _poll_until_attention(store, mock_transport, next_number=9931)
+
+    assert run.error_message == "The Jenkins queue item is gone and no build matches it."
+
+
 async def test_running_build_that_finished_records_the_result(store, mock_transport, fixture_json):
     def handler(request):
         return httpx.Response(200, json=fixture_json("build_finished"))

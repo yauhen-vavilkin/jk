@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
+from jk.engine.messages import never_started_note
 from jk.errors import (
     AmbiguousSubmission,
     JenkinsAuthError,
@@ -121,13 +122,33 @@ class RunEngine:
                 run_id,
                 position,
                 kind="target_not_found",
-                message=(
-                    "The Jenkins queue item is gone and no build matches it. "
-                    "JK kept the last known state and will not start anything."
-                ),
+                message=await self._queue_item_gone_message(step, rest_path),
             )
             return StepState.NEEDS_ATTENTION if applied else self._current_state(run_id, position)
         return StepState.QUEUED
+
+    async def _queue_item_gone_message(self, step, rest_path: str) -> str:
+        """Say whether Jenkins made any build at all after JK sent the request.
+
+        Jenkins numbers builds one by one. If the job's next number is still the
+        one it had before the request, no build was created and nothing ran.
+        When that cannot be checked, the answer stays the cautious one.
+        """
+        gone = "The Jenkins queue item is gone and no build matches it."
+        try:
+            current = await self._reader.next_build_number(rest_path)
+        except (
+            JenkinsUnavailable,
+            JenkinsAuthError,
+            TargetNotFound,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            return gone
+        if step.search_from_build_number is not None and current == step.search_from_build_number:
+            return never_started_note(current)
+        return gone
 
     async def _poll_build(self, run_id: str, position: int) -> StepState:
         step = self._store.get_run(run_id).steps[position]
@@ -147,10 +168,7 @@ class RunEngine:
                 run_id,
                 position,
                 kind="target_not_found",
-                message=(
-                    "The Jenkins build can no longer be found. "
-                    "JK kept the last known state and will not start anything."
-                ),
+                message="The Jenkins build can no longer be found.",
             )
             return StepState.NEEDS_ATTENTION if applied else self._current_state(run_id, position)
         return StepState.RUNNING
@@ -174,9 +192,8 @@ class RunEngine:
                 position,
                 kind="unknown_result",
                 message=(
-                    f"Jenkins reported the final result {raw_result!r}, which JK does not "
-                    "know how to interpret. JK kept the last known state and will "
-                    "not start anything."
+                    f"Jenkins reported the final result {raw_result!r}, "
+                    "which JK does not know how to interpret."
                 ),
             )
             return StepState.NEEDS_ATTENTION if applied else self._current_state(run_id, position)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import time
 from collections.abc import Iterator
@@ -28,6 +29,9 @@ CLOSED_KIND = "closed"
 
 def _now() -> int:
     return int(time.time())
+
+
+LOG = logging.getLogger("jk.store")
 
 
 class RunStore:
@@ -123,6 +127,12 @@ class RunStore:
             )
             if cursor.rowcount:
                 self._touch(connection, run_id)
+                LOG.info(
+                    "run %s step %s: sending; the job's next build number is %s",
+                    run_id,
+                    position,
+                    next_build_number,
+                )
             return cursor.rowcount == 1
 
     def mark_queued(self, run_id: str, position: int, *, queue_url: str, note: str | None) -> bool:
@@ -141,6 +151,7 @@ class RunStore:
             )
             if cursor.rowcount:
                 self._touch(connection, run_id)
+                LOG.info("run %s step %s: Jenkins queued it at %s", run_id, position, queue_url)
             return cursor.rowcount == 1
 
     def mark_running(
@@ -168,6 +179,7 @@ class RunStore:
             )
             if cursor.rowcount:
                 self._touch(connection, run_id)
+                LOG.info("run %s step %s: build #%s started", run_id, position, build_number)
             return cursor.rowcount == 1
 
     def update_build_timing(
@@ -214,6 +226,7 @@ class RunStore:
             )
             if not cursor.rowcount:
                 return False
+            LOG.info("run %s step %s: finished with %s", run_id, position, result)
             # A step result only stamps the run: it never rewrites the run's error,
             # so a build already in flight cannot erase a failure it did not cause.
             connection.execute("UPDATE runs SET updated_at = ? WHERE id = ?", (stamp, run_id))
@@ -235,6 +248,7 @@ class RunStore:
             )
             if cursor.rowcount:
                 self._touch(connection, run_id, "rejected", message)
+                LOG.warning("run %s step %s: rejected: %s", run_id, position, message)
             return cursor.rowcount == 1
 
     def mark_rejected_if_attention(self, run_id: str, position: int, *, message: str) -> bool:
@@ -276,6 +290,9 @@ class RunStore:
             )
             if cursor.rowcount:
                 self._touch(connection, run_id, kind, message)
+                LOG.warning(
+                    "step %s of run %s needs attention (%s): %s", position, run_id, kind, message
+                )
             return cursor.rowcount == 1
 
     def link_build_if_attention(

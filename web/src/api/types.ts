@@ -228,6 +228,7 @@ export interface AttentionCandidate {
 export interface Attention {
   reason: string;
   never_again_text: string;
+  nothing_ran: boolean;
   job_path: string;
   sent_at: string | null;
   next_build_number: number | null;

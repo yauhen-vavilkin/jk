@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from jk.engine.messages import never_started_note
 from jk.store.records import FlowStatus
 from jk.web import attention
 from tests.webapp import BASE_URL, FakeJenkins, listed, start_reviewed
@@ -109,11 +110,35 @@ async def test_the_reason_names_the_saved_job_and_the_step_keeps_the_error(
         "Connection dropped while sending Example environment. Jenkins may have started it."
     )
     assert found["never_again_text"] == "JK will not send it again."
+    assert found["nothing_ran"] is False
     assert found["job_path"] == JOB_PATH
     assert found["next_build_number"] == 41
     note = flow["steps"][0]["note"]
     assert note.startswith("the connection failed while the request was being sent")
     assert "the connection dropped" in note
+
+
+async def test_a_request_jenkins_never_turned_into_a_build_says_nothing_ran(
+    client, services
+) -> None:
+    preset = await make_preset(client)
+    flow = (await client.post("/api/flows", json={"steps": [{"preset_id": preset["id"]}]})).json()
+    services.flows.set_status(flow["id"], FlowStatus.RUNNING, started=True)
+    assert services.store.claim_submit_pending(flow["id"], 0, next_build_number=41)
+    services.store.mark_queued(
+        flow["id"], 0, queue_url="https://jenkins.invalid/queue/item/7/", note=None
+    )
+    assert services.store.mark_needs_attention(
+        flow["id"], 0, kind="target_not_found", message=never_started_note(41)
+    )
+    listed_flow = await listed(client, "flows", flow["id"])
+
+    found = (
+        await client.get(f"/api/flows/{flow['id']}/steps/{listed_flow['steps'][0]['id']}/attention")
+    ).json()
+
+    assert found["nothing_ran"] is True
+    assert found["never_again_text"].startswith("Nothing ran in Jenkins.")
 
 
 async def test_a_submission_jk_stopped_during_names_the_saved_job(client, services) -> None:

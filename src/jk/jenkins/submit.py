@@ -17,6 +17,7 @@ import httpx
 
 from jk.engine.messages import CONNECTION_FAILED_WHILE_SENDING
 from jk.errors import AmbiguousSubmission, JenkinsAuthError, SubmissionRejected
+from jk.jenkins.client import LOG
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class JenkinsSubmitter:
             response = await self._client.post(path, data=body)
         except httpx.HTTPError as exc:
             # The request may or may not have reached Jenkins. Never re-send.
+            LOG.error("POST %s failed with no answer, outcome unknown: %r", path, exc)
             raise AmbiguousSubmission(f"{CONNECTION_FAILED_WHILE_SENDING} ({exc}).") from exc
         return self._interpret(path, response)
 
