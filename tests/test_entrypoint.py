@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from jk.__main__ import StateDirectoryLock, _environment, main
+from jk.__main__ import StateDirectoryLock, _answers, _environment, main
 
 CREDENTIALS = ("JENKINS_URL", "JENKINS_USER_ID", "JENKINS_API_TOKEN")
 
@@ -156,3 +156,51 @@ def test_running_outside_a_checkout_fails_with_a_clear_message(tmp_path, monkeyp
     captured = capsys.readouterr()
     assert "JK cannot start" in captured.err
     assert "checkout" in captured.err
+
+
+def _ready_to_serve(checkout, monkeypatch) -> list[str]:
+    opened: list[str] = []
+    monkeypatch.setattr("jk.__main__.serve", lambda **_kwargs: opened.append("store") or 0)
+    for name in CREDENTIALS:
+        monkeypatch.setenv(name, "https://jenkins.invalid" if name == "JENKINS_URL" else "t")
+    (checkout / ".jk").mkdir()
+    (checkout / ".jk" / "serve.url").write_text("http://127.0.0.1:8765")
+    return opened
+
+
+def test_a_panel_that_answers_at_its_address_is_not_started_twice(
+    checkout, monkeypatch, capsys
+) -> None:
+    """The lock does not cross Docker Desktop's file sharing; the address does."""
+    opened = _ready_to_serve(checkout, monkeypatch)
+    asked: list[str] = []
+    monkeypatch.setattr("jk.__main__._answers", lambda address: asked.append(address) or True)
+
+    assert main(["serve", "--no-open"]) == 0
+
+    assert asked == ["http://127.0.0.1:8765"]
+    assert "JK is already running at http://127.0.0.1:8765" in capsys.readouterr().out
+    assert opened == []
+
+
+def test_an_address_left_by_a_killed_panel_does_not_stop_the_start(checkout, monkeypatch) -> None:
+    opened = _ready_to_serve(checkout, monkeypatch)
+    monkeypatch.setattr("jk.__main__._answers", lambda _address: False)
+
+    assert main(["serve", "--no-open"]) == 0
+
+    assert opened == ["store"]
+
+
+def test_an_address_answers_only_when_something_listens(monkeypatch) -> None:
+    connected: list[tuple] = []
+
+    def refuse(address, timeout):
+        connected.append(address)
+        raise ConnectionRefusedError
+
+    monkeypatch.setattr("socket.create_connection", refuse)
+
+    assert _answers("http://127.0.0.1:8765") is False
+    assert _answers("not an address") is False
+    assert connected == [("127.0.0.1", 8765)]

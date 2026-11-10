@@ -14,7 +14,7 @@ def _access_error(path: Path, problem: str) -> StateAccessError:
     return StateAccessError(
         f"cannot secure JK state at {path}: {problem}. "
         "Use ordinary files and a state directory owned by the user running JK; "
-        "a Docker volume must belong to the container user."
+        "in Docker, JK runs as the owner of the checkout's .jk/ folder."
     )
 
 

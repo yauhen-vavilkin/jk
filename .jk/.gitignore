@@ -1,0 +1,3 @@
+# The run database and its lock live here; Git keeps only this file.
+*
+!.gitignore

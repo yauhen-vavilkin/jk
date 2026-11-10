@@ -5,6 +5,7 @@ as environment variables; the run history lives in `.jk/`. Neither may be copied
 into an image, and the panel may only be published on loopback.
 """
 
+import subprocess
 from pathlib import Path
 
 from ruamel.yaml import YAML
@@ -53,8 +54,49 @@ def test_compose_publishes_on_loopback_and_passes_the_token_through_env_file() -
     assert "environment" not in service
 
 
-def test_compose_and_docker_run_use_the_same_named_volume() -> None:
+def _jk_service() -> dict:
+    return YAML(typ="safe").load((ROOT / "compose.yaml").read_text())["services"]["jk"]
+
+
+def test_compose_keeps_the_database_in_the_checkout_s_own_folder() -> None:
+    """A bind mount of .jk/, never made by Docker as root, labelled for SELinux."""
+    mounts = [volume for volume in _jk_service()["volumes"] if isinstance(volume, dict)]
+
+    assert mounts == [
+        {
+            "type": "bind",
+            "source": "./.jk",
+            "target": "/app/.jk",
+            "bind": {"create_host_path": False, "selinux": "z"},
+        }
+    ]
+
+
+def test_compose_reads_the_old_volume_only_where_the_move_looks_for_it() -> None:
     compose = YAML(typ="safe").load((ROOT / "compose.yaml").read_text())
 
     assert compose["volumes"]["jk-data"]["name"] == "jk-data"
-    assert "jk-data:/app/.jk" in compose["services"]["jk"]["volumes"]
+    assert "jk-data:/legacy" in compose["services"]["jk"]["volumes"]
+    assert not any("/app/.jk" in str(v) for v in compose["services"]["jk"]["volumes"][1:])
+
+
+def test_the_image_starts_through_the_user_choice_and_the_move() -> None:
+    text = (ROOT / "Dockerfile").read_text()
+
+    assert '"-m", "jk.container"' in text
+    # Root is given up by jk.container itself, after it has read the owners.
+    assert not any(line.startswith("USER") for line in text.splitlines())
+    assert "useradd --create-home --uid 1000 jk" in text
+
+
+def test_the_state_folder_is_in_every_checkout_but_its_contents_are_not() -> None:
+    def ignored(path: str) -> bool:
+        return (
+            subprocess.run(["git", "check-ignore", "-q", path], cwd=ROOT, check=False).returncode
+            == 0
+        )
+
+    assert (ROOT / ".jk" / ".gitignore").is_file()
+    assert not ignored(".jk/.gitignore")
+    for private in (".jk/runs.db", ".jk/runs.db-wal", ".jk/jk.lock", ".jk/serve.url"):
+        assert ignored(private), private

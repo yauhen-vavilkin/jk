@@ -140,15 +140,33 @@ store/     SQLite runs, steps, parameters, saved jobs and flows, and Jenkins ref
 directory; its build is served by the panel.
 
 `Dockerfile` and `compose.yaml` package `jk serve` with its dependencies and
-the built frontend. The run database is a volume, and Compose passes the root
+the built frontend. Compose bind-mounts the checkout's `.jk/` folder into the
+container, so the run database stays in the checkout, and passes the root
 `.env` to the container as environment variables (`env_file`); neither is ever
-copied into the image.
+copied into the image. Git tracks only `.jk/.gitignore`, so the folder exists in
+every clone and Docker never has to create it.
 
 JK runs from its checkout: the run-history state directory is always the
-checkout's own `.jk/` (in Docker, the volume mounted there), and the
-credentials file is always its own root `.env`. Nothing moves either one and
-there is no home-directory fallback; a `jk` that cannot find its checkout
-refuses to start with a clear message.
+checkout's own `.jk/` (in Docker, that same folder mounted at `/app/.jk`), and
+the credentials file is always its own root `.env`. No setting moves either one
+and there is no home-directory fallback; a `jk` that cannot find its checkout
+refuses to start with a clear message. A panel in Docker and one started from
+the checkout therefore share one history, and only one of them may run at a
+time: the file lock does not reach across Docker Desktop's file sharing, so a
+start first checks whether the address in `serve.url` answers and, if it does,
+points there without opening the database.
+
+Earlier releases kept the Docker panel's database in the named volume
+`jk-data`. Compose still mounts that volume at `/legacy`, and the container's
+start moves its database into `.jk/` once, before JK opens it: under the old
+panel's lock it reads the whole database through SQLite, write-ahead log
+included; it writes the bytes to `.jk/runs.db` only after their hash and
+SQLite's integrity check match; then it writes `MIGRATED` into the volume, which
+is never read again and keeps its copy as a backup. It never replaces a
+database already in `.jk/`: one with exactly the moved bytes means the move had
+finished; any other stops the start, naming both, and nothing is changed. A
+failed step stops the start and leaves the volume as it was. This moves the
+file; it is not a schema migration.
 
 ## 6. Jenkins validation and the parameter map
 
@@ -251,8 +269,14 @@ The dedicated `.jk` directory has mode `0700`; the database, SQLite sidecars,
 process lock, and running-address file have mode `0600`. Startup tightens the
 permissions of existing state owned by the current user without replacing its
 data. It refuses symbolic links and state owned by a different user with a clear
-startup error. In Docker the default owner is `jk`, UID 1000; a custom container
-user needs a state volume prepared for that user.
+startup error. In Docker, the container starts as root only to choose its user
+and to make the one-time move, each side read or written by its own owner; it
+then gives up root and runs JK as the owner of `.jk/`: the user who cloned the
+checkout on Linux, root inside a rootless Docker or Podman (that same user on
+the host), and the image's `jk` user, UID 1000, on Docker Desktop, whose file
+sharing shows every user as the owner and keeps the host user as the real one.
+A container started with `--user` changes no user. JK never changes the owner of
+a file.
 
 The engine's tables are `runs`, `steps`, and `step_params`. The panel adds
 `presets` (saved jobs), `saved_flows`, `jenkins_jobs`, `flow_meta`, and

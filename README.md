@@ -33,8 +33,8 @@ docker compose up -d
 
 Open <http://127.0.0.1:8765>, add a job in **Library**, then put it into a flow
 on **Board**. Review the job, environment and parameter values before **Run**.
-Stop the panel with `docker compose down`; saved jobs and history stay in the
-Docker volume.
+Stop the panel with `docker compose down`; saved jobs and history stay in
+`.jk/runs.db` in the checkout.
 
 The screenshot uses offline fixtures, not a live Jenkins session.
 
@@ -58,7 +58,7 @@ user on their own computer; keep its port bound to `127.0.0.1`.
 Use a current desktop browser. The frontend requires Safari 16.4+, Chrome 111+
 or Firefox 128+. For source development, use macOS or Linux, Python 3.14,
 [uv](https://docs.astral.sh/uv/), and Node.js 22.12+ with npm. Windows users can
-run the Docker version.
+run the Docker version from a clone inside WSL2 (not tested).
 
 ## Configure
 
@@ -206,7 +206,8 @@ Without Compose, the same thing is:
 
 ```sh
 docker build -t jk-panel .
-docker run -d --name jk-panel -p 127.0.0.1:8765:8765 -v jk-data:/app/.jk --env-file .env jk-panel
+docker run -d --name jk-panel -p 127.0.0.1:8765:8765 --env-file .env \
+  --mount type=bind,src="$PWD/.jk",dst=/app/.jk jk-panel
 ```
 
 `docker run --env-file` takes every value literally, quotes included, so the
@@ -214,22 +215,46 @@ docker run -d --name jk-panel -p 127.0.0.1:8765:8765 -v jk-data:/app/.jk --env-f
 
 What to know:
 
-- **Your data** lives in the Docker volume `jk-data`, not in the checkout's
-  `.jk/`. It survives `docker compose down` and a rebuilt image;
-  `docker volume rm jk-data` deletes it for good. The container and a panel run
-  straight from the checkout (see "Run from source") keep separate
-  histories.
-- **File ownership:** the container runs as UID 1000. Its state directory is
-  `0700` and its files are `0600`. Existing state owned by this user is hardened
-  on startup without changing its contents. A bind mount or custom `--user`
-  needs a state directory owned by that UID; JK does not change file ownership.
+- **Your data** lives in `.jk/runs.db` in the checkout, mounted into the
+  container. Git ignores everything in `.jk/` except its `.gitignore`, so the
+  folder is in every clone; `git clean -x` deletes your data. To back it up,
+  stop the panel and copy `.jk/`. Docker and a panel run straight from the
+  checkout (see "Run from source") use the same history; run only one at a time,
+  on the same port, and the second one only points to the first.
+- **From the old Docker volume:** releases before this one kept the data in the
+  Docker volume `jk-data`. The first `docker compose up -d` moves it into `.jk/`
+  by itself: saved jobs, saved flows and history, the whole database. The log
+  (`docker compose logs jk`) says so, and the volume keeps its copy as a
+  backup; delete it with `docker volume rm jk-data` once you no longer want it
+  (Compose then makes an empty one, which is harmless). The volume is marked as
+  moved, so its copy never comes back; two checkouts on one computer share that
+  one volume, and only the first gets its data. If the old panel is still running
+  during the move, run `docker compose down`, then `docker compose up -d`.
+- **Two databases:** if `.jk/` already holds a database when the volume is
+  moved, the panel does not start, and changes neither. Keep one: either keep
+  `.jk/` and mark the volume as moved,
+  `docker run --rm -v jk-data:/legacy --entrypoint touch jk-panel /legacy/MIGRATED`,
+  or move `.jk/runs.db` (and any `runs.db-wal`) out of `.jk/` and start again.
+- **File ownership:** the container starts as root only to choose its user and
+  to move the old volume, then runs JK as the owner of `.jk/` -- on Linux, the
+  user who cloned the checkout, whatever its UID. Docker Desktop's file sharing
+  shows every user as the owner, so there JK runs as the image's user, UID 1000,
+  and the files on your disk stay yours. The folder is `0700` and its files are
+  `0600`; JK never changes file ownership. `docker run --user` changes no user.
+  On a host with SELinux, Compose labels the folder (`selinux: z`); with
+  `docker run` there, use `-v "$PWD/.jk:/app/.jk:z"` instead of `--mount`,
+  which cannot label it.
+- **Where the checkout lives:** Docker Desktop mounts only folders it shares;
+  on macOS, `/Users` is shared by default. On Windows, clone inside WSL2: SQLite
+  cannot keep the database safely on a folder shared from Windows.
 - **Only this computer** can open the panel: the port is published on
   `127.0.0.1`. Keep it that way; the panel can start Jenkins builds.
 - **Another computer** needs no checkout. Save the image with
   `docker save jk-panel | gzip > jk-panel.tar.gz`, load it there with
-  `docker load < jk-panel.tar.gz`, and run the `docker run` line with the path
-  to that computer's `.env`. An image built on Apple silicon runs on Apple
-  silicon; for an Intel Mac or Linux PC, build with
+  `docker load < jk-panel.tar.gz`, make a `.jk` folder there, and run the
+  `docker run` line with the paths to that computer's `.env` and `.jk`. An
+  image built on Apple silicon runs on Apple silicon; for an Intel Mac or Linux
+  PC, build with
   `docker buildx build --platform linux/amd64 --load -t jk-panel .`.
 - A missing `.env` stops `docker compose up` with an error.
 

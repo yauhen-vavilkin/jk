@@ -6,7 +6,8 @@ __pycache__/
 .DS_Store
 
 # Local run state and agent scratch, never part of the repository
-/.jk/
+/.jk/*
+!/.jk/.gitignore
 /.opencode/
 /.tasks/
 

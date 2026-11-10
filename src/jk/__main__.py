@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import socket
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from jk.errors import StateAccessError
 from jk.jenkins.client import JenkinsConfig
@@ -51,6 +53,23 @@ class StateDirectoryLock:
         fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
         self._handle.close()
         self._handle = None
+
+
+def _answers(address: str) -> bool:
+    """Whether a panel is listening at the address another JK wrote down.
+
+    The file lock does not reach across Docker Desktop's file sharing, so a
+    panel in Docker and one started from the checkout do not see each other's
+    lock; this sees the other one before the database is opened.
+    """
+    parts = urlsplit(address)
+    if parts.hostname is None or parts.port is None:
+        return False
+    try:
+        with socket.create_connection((parts.hostname, parts.port), timeout=1):
+            return True
+    except OSError:
+        return False
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -119,6 +138,11 @@ def run_serve(arguments: argparse.Namespace) -> int:
         return 0
 
     try:
+        # A stale address, left by a panel that was killed, answers nothing.
+        address = running_url(state_path)
+        if address and _answers(address):
+            print(f"JK is already running at {address}")
+            return 0
         return serve(
             jenkins_config=jenkins_config,
             state_path=state_path,

@@ -9,9 +9,18 @@ services:
       - "127.0.0.1:8765:8765"
     env_file: .env
     volumes:
-      - jk-data:/app/.jk
+      # The run database: the checkout's own .jk/, tracked as a folder, never its
+      # contents. A missing folder stops `up` instead of being made by root.
+      - type: bind
+        source: ./.jk
+        target: /app/.jk
+        bind:
+          create_host_path: false
+          selinux: z
+      # Where earlier releases kept the database. Read once, at the first start,
+      # and moved into .jk/; the volume keeps its copy as a backup.
+      - jk-data:/legacy
 
 volumes:
   jk-data:
-    # A fixed name, so `docker run -v jk-data:...` and Compose share one history.
     name: jk-data
