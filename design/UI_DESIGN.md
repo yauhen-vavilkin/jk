@@ -51,10 +51,15 @@ Rules:
   if everything is accented, nothing is.
   A step card never gets a dashed amber outline: it keeps its usual border, and
   `Fill N values` has a thin solid border and amber text.
-- **The card says what tells one job from another.** The saved job's table has
-  an *on card* checkbox per sent value, four at most; the others are disabled
-  with the title "A card shows 4 values". An address on a card has no scheme
-  and is cut in the middle, never at the end.
+- **A step card says what tells one job from another.** The saved job's table
+  has an *on card* checkbox per sent value, four at most; the others are
+  disabled with the title "A card shows 4 values". An address on a card has no
+  scheme and is cut in the middle, never at the end.
+- **A saved job in the left column is its name.** People look a job up by its
+  name, so the row shows the name and, in mono `dim`, only `N at launch` and
+  `destructive`; the marks go under the name rather than cut it. Its values are
+  in the menu a click on the row opens. A filter field above the column
+  narrows saved jobs and saved flows by name or operation.
 - **Never encode state by colour alone.** A failed step says `FAILURE`, a
   destructive job says `destructive`. Colour reinforces the word; it does not
   replace it. Screens get recoloured and people see colour differently.

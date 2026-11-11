@@ -20,6 +20,8 @@ import { GroupLabel, PrimaryButton } from "@/components/ui/primitives";
 import { roundMinutes } from "@/lib/time";
 import PresetCard from "./PresetCard";
 
+const FILTER_LABEL = "Filter saved jobs…";
+
 /** The column's own switch: a button of its own, never the label beside it. */
 export function RailToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
   const Icon = open ? PanelLeftClose : PanelLeftOpen;
@@ -52,6 +54,22 @@ export function groupByOperation(presets: Preset[]): [string, Preset[]][] {
   // By name only, so a card never moves because it just ran.
   for (const list of groups.values()) list.sort((left, right) => left.name.localeCompare(right.name));
   return [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
+}
+
+/** Whether any of the texts holds the query, whatever the case; an empty query matches everything. */
+export function matchesQuery(query: string, ...texts: string[]): boolean {
+  const needle = query.trim().toLowerCase();
+  return !needle || texts.some((text) => text.toLowerCase().includes(needle));
+}
+
+/** The column's groups, keeping only the saved jobs whose name or operation has the query. */
+export function filterGroups(presets: Preset[], query: string): [string, Preset[]][] {
+  return groupByOperation(presets)
+    .map(([operation, group]): [string, Preset[]] => [
+      operation,
+      group.filter((preset) => matchesQuery(query, preset.name, preset.operation)),
+    ])
+    .filter(([, group]) => group.length > 0);
 }
 
 /** Where the board scrolls a saved flow to after a Save. */
@@ -259,17 +277,30 @@ export default function SavedJobs({
   onCollapse,
   problem,
   onProblem,
+  reveal = null,
 }: {
   presets: Preset[];
   savedFlows: SavedFlow[];
   onCollapse: () => void;
+  /** A saved flow the board is about to scroll to: the filter must not hide it. */
+  reveal?: string | null;
   /** The board's last refusal, when it was about one of these rows. */
   problem: { row: string; text: string } | null;
   /** A row was refused (a reason), or something done to it worked (null). */
   onProblem: (row: string, why: string | null) => void;
 }) {
-  const groups = groupByOperation(presets);
+  const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  // A Save scrolls to the new row, which has to be there to scroll to.
+  useEffect(() => {
+    if (reveal) setQuery("");
+  }, [reveal]);
+  const groups = filterGroups(presets, query);
+  // A row with a refusal under it stays, or the refusal would go with it.
+  const flows = savedFlows.filter(
+    (savedFlow) => problem?.row === savedFlow.id || matchesQuery(query, savedFlow.name),
+  );
+  const nothing = query.trim() !== "" && groups.length === 0 && flows.length === 0;
 
   return (
     <aside
@@ -282,6 +313,22 @@ export default function SavedJobs({
           <GroupLabel>saved jobs</GroupLabel>
           <RailToggle open onClick={onCollapse} />
         </div>
+
+        {(presets.length > 0 || savedFlows.length > 0) && (
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setQuery("");
+            }}
+            placeholder={FILTER_LABEL}
+            aria-label="Filter saved jobs"
+            className="h-8 min-w-0 rounded-md border border-dim bg-well px-2.5 text-[14px] text-text caret-accent outline-hidden placeholder:text-dim focus:border-accent"
+          />
+        )}
+
+        {nothing && <span className="px-1 text-[14px] text-dim">Nothing matches "{query.trim()}".</span>}
 
         {presets.length === 0 && (
           <div className="flex flex-col items-start gap-3 px-1">
@@ -303,10 +350,10 @@ export default function SavedJobs({
         ))}
       </div>
 
-      {savedFlows.length > 0 && (
+      {flows.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <GroupLabel>saved flows</GroupLabel>
-          {savedFlows.map((savedFlow) => (
+          {flows.map((savedFlow) => (
             <SavedFlowRow
               key={savedFlow.id}
               savedFlow={savedFlow}

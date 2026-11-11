@@ -90,8 +90,11 @@ The panel has three pages:
 
 - **Board** -- saved jobs on the left, parallel *flows* in the middle, on the
   dot grid. Flows stand in the order they were made, the pinned ones first. The
-  button beside **SAVED JOBS** hides the left column and shows it again; a
-  saved flow's row there reads its steps and Jenkins' guess for them, as in
+  button beside **SAVED JOBS** hides the left column and shows it again. A saved
+  job there is its name, with `N at launch` and `destructive` when they apply;
+  a click shows the values it sends. The field above the column filters saved
+  jobs and saved flows by name or operation, and Escape clears it. A saved
+  flow's row reads its steps and Jenkins' guess for them, as in
   `6 steps · ~42m`.
 
   A flow that has not started is a draft, and a draft is always open to change:
@@ -163,8 +166,8 @@ The panel has three pages:
   `fixed` is sent as written, `at launch` is typed per run -- in the window a
   card's **Fill N values** opens, or in the review, which names any still empty
   -- and `default` leaves the parameter to its Jenkins default and sends nothing
-  for it. The **on card** box beside a sent value shows it on the job's card, up
-  to four; until you tick one, the card shows the first four. When Jenkins changes a job, the saved job is marked and does not run
+  for it. The **on card** box beside a sent value shows it on the job's step
+  cards in flows, up to four; until you tick one, a step card shows the first four. When Jenkins changes a job, the saved job is marked and does not run
   until you have looked at the change: set the new parameters in the table and
   press **Accept as shown**, which saves them. **Used by** names each flow and
   step that uses the saved job, so you know where a Save lands. **Save** reads

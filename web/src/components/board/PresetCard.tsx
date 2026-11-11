@@ -6,10 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { Preset } from "@/api/types";
-import CardValuesBlock from "@/components/ui/CardValuesBlock";
 import { DestructiveMark } from "@/components/ui/DestructiveMark";
 import Menu from "@/components/ui/Menu";
-import { presetCardValues } from "@/lib/cardValues";
 import { DriftLink } from "./DriftLink";
 
 /** Why the card cannot be dragged, for the hover title of its drift link. */
@@ -20,20 +18,35 @@ function driftNote(preset: Preset): string | null {
   return `Jenkins changed this job: +${added} −${removed} parameters.`;
 }
 
+/** `2 at launch` when the job asks for values on each run; null when it asks for none. */
+export function launchMark(preset: Preset): string | null {
+  const asked = Object.values(preset.params).filter((setting) => setting.mode === "ask").length;
+  return asked > 0 ? `${asked} at launch` : null;
+}
+
+/**
+ * A saved job in the left column: its name and quiet marks, never its values.
+ * People look a job up by its name; the values are in the menu a click opens.
+ */
 export function PresetCardBody({ preset }: { preset: Preset }) {
   const note = driftNote(preset);
+  const launch = launchMark(preset);
   return (
     <>
-      {/* The name keeps the line; the mark goes under it when both do not fit. */}
+      {/* The name keeps the line; the marks go under it when both do not fit,
+          since names often differ only at their end. */}
       <div className="flex flex-wrap items-center gap-x-2">
         {/* The column is narrow enough that a long name is cut; hovering gives it back. */}
         <span title={preset.name} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-medium">
           {preset.name}
         </span>
-        {preset.destructive && <DestructiveMark tone="text-dim" className="flex-none" />}
+        {(launch || preset.destructive) && (
+          <span className="inline-flex flex-none items-center gap-2 font-mono text-[13px] text-dim">
+            {launch && <span>{launch}</span>}
+            {preset.destructive && <DestructiveMark tone="text-dim" />}
+          </span>
+        )}
       </div>
-
-      <CardValuesBlock values={presetCardValues(preset)} />
 
       {note && <DriftLink presetId={preset.id} title={note} />}
     </>
@@ -88,7 +101,7 @@ export default function PresetCard({ preset }: { preset: Preset }) {
         ref={anchor}
         type="button"
         onClick={(event) => toggle(event.currentTarget)}
-        className="flex w-full flex-col gap-[5px] rounded-md border border-surface bg-surface px-3 py-[9px] text-left transition-colors duration-150 hover:bg-surface-2"
+        className="flex w-full flex-col gap-1 rounded-md border border-surface bg-surface px-3 py-1.5 text-left transition-colors duration-150 hover:bg-surface-2"
       >
         <PresetCardBody preset={preset} />
       </button>

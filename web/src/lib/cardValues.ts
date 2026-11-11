@@ -149,18 +149,4 @@ export function stepValues(step: Step, preset?: Preset, asked: string[] = []): S
   return [...known, ...missing];
 }
 
-/** A saved job's card: what it sends, with every value asked at launch still to be typed. */
-export function presetCardValues(preset: Preset): CardValues {
-  const sent = presetValues(preset);
-  const summary = preset.summary_params.flatMap((name) => {
-    const item = sent.find((value) => value.name === name);
-    return item ? [{ name, value: item.value, per_run: item.asked }] : [];
-  });
-  return cardValues(
-    summary,
-    sent.filter((item) => item.asked).map((item) => item.name),
-    sent,
-  );
-}
-
 export { SEPARATOR };

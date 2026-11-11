@@ -618,6 +618,7 @@ export default function Board() {
             onCollapse={rail.toggle}
             problem={problem?.row ? { row: problem.row, text: problem.text } : null}
             onProblem={(row, why) => (why ? refuse(why, row) : said.onSuccess())}
+            reveal={savedId}
           />
         )}
 
@@ -793,7 +794,7 @@ export default function Board() {
       <DragOverlay dropAnimation={null}>
         {dragging && (
           <div
-            className={`${CARD_CLASS} flex flex-col gap-[5px] rounded-md border border-accent bg-surface px-3 py-[9px] shadow-[0_8px_24px_rgba(0,0,0,.5)]`}
+            className="flex w-[274px] flex-col gap-1 rounded-md border border-accent bg-surface px-3 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,.5)]"
           >
             <PresetCardBody preset={dragging} />
           </div>

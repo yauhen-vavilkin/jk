@@ -8,7 +8,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { Preset, SavedFlow } from "@/api/types";
 import Menu from "@/components/ui/Menu";
 import { nextActive } from "@/components/Search";
-import { groupByOperation, savedFlowMeta } from "./SavedJobs";
+import { groupByOperation, matchesQuery, savedFlowMeta } from "./SavedJobs";
 
 const PICKER_PLACEHOLDER = "Search saved jobs and saved flows…";
 const WIDTH = 320;
@@ -26,8 +26,7 @@ interface PickerOption {
 
 /** Saved jobs in the column's order, then saved flows; a query keeps those whose name or operation has it. */
 export function pickerOptions(presets: Preset[], savedFlows: SavedFlow[], query: string): PickerOption[] {
-  const needle = query.trim().toLowerCase();
-  const has = (...texts: string[]) => !needle || texts.some((text) => text.toLowerCase().includes(needle));
+  const has = (...texts: string[]) => matchesQuery(query, ...texts);
   return [
     ...groupByOperation(presets)
       .flatMap(([, group]) => group)

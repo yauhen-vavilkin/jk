@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ParamSetting, Preset, Step, SummaryValue } from "@/api/types";
-import { cardValues, oneLine, presetCardValues, stepValues } from "./cardValues";
+import { cardValues, oneLine, stepValues } from "./cardValues";
 
 const value = (name: string, text: string, per_run = false): SummaryValue => ({
   name,
@@ -152,22 +152,6 @@ describe("stepValues", () => {
       { name: "CLUSTER", value: "example-cluster", asked: false },
       { name: "BRANCH", value: "", asked: true },
     ]);
-  });
-});
-
-describe("presetCardValues", () => {
-  it("names what a saved job asks at launch and keeps the values it fixes", () => {
-    const shown = presetCardValues(
-      preset(
-        { CLUSTER: ask, NAMESPACE: ask, TENANT_ID: fixed("diku"), LEFT: left },
-        ["CLUSTER", "NAMESPACE", "TENANT_ID", "LEFT"],
-      ),
-    );
-
-    expect(shown.target).toBeNull();
-    expect(shown.launch).toBe("2");
-    expect(shown.lines.flat().map((item) => item.text)).toEqual(["diku"]);
-    expect(shown.title).toBe("TENANT_ID=diku\nAt launch: CLUSTER, NAMESPACE");
   });
 });
 

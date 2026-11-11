@@ -56,13 +56,15 @@ job and nowhere else, and it lives in `.jk/runs.db`. It defines:
 - the full Jenkins job path;
 - for every Jenkins parameter, one mode: `fixed` with a saved value,
   `at launch` with a value typed for each run, or `default`, left to Jenkins;
-- the values its card shows: up to four of the values it sends, ticked in the
+- the values its step card shows: up to four of the values it sends, ticked in the
   Library's table; until someone ticks, the first four it sends in Jenkins'
   order, worked out whenever the card is drawn. Once someone has ticked, the
   choice stays as ticked, an empty one included. A value that stops being sent
   leaves the card, and returns to it if it is sent again. A step's card follows
   its saved job's current choice, whether the step ran or not. A long address
-  is printed without its scheme and cut in the middle;
+  is printed without its scheme and cut in the middle. The Board's left column
+  lists a saved job by its name only, with how many values it asks at launch
+  and whether it is destructive, under a filter by name or operation;
 - whether the action is destructive and needs its target named in review;
 - a snapshot of the Jenkins parameter definitions it was saved against.
 
