@@ -133,15 +133,20 @@ The panel has three pages:
 
   A flow's header has one main button for what comes next -- usually **Run**,
   **Run again**, **Resolve step N** or **Review added steps** -- with **Stop**,
-  **Resume** or **Resume from step N** beside it. Everything else is behind **More actions**, the three-dot button:
-  **Pin**, **Save**, **Duplicate**, **Edit a copy** on a flow that ended, and
-  **Remove**. **Edit a copy** -- or a saved job dropped on an ended flow --
+  **Resume** or **Resume from step N** beside it. Two quiet icons follow:
+  **Pin**, and **Remove** -- a broom on a flow that ran, which leaves History
+  keeping it, and a trash can on a draft, which deletes it. Remove is not shown
+  while the flow is going, waits for a build, or has a step to resolve; a
+  stopped flow asks first. Everything else is behind **More actions**, the
+  three-dot button: **Save**, **Duplicate** and **Edit a copy** on a flow that
+  ended. The menu lists only what can be done now. **Edit a copy** -- or a saved job dropped on an ended flow --
   replaces it with a copy to be changed first. **Duplicate** makes a second
   flow with the same steps under a free name. **Save** writes the flow's steps
   -- the jobs, in order, with their conditions and the values typed for them --
   into **Saved flows**, so a flow taken from it later starts with those values
-  filled in. It reads **Saving…** on the way, and **Saved** once there is
-  nothing left to save. The flow's name is not part of it: the saved flow keeps
+  filled in. It reads **Save changes** once the flow differs from its saved
+  flow, **Saving…** on the way, and is not in the menu while there is nothing
+  left to save. The flow's name is not part of it: the saved flow keeps
   the name its own row gives it, so nothing you do on the board ever renames it.
   A flow with a value still empty cannot start: its header reads **NOT READY**,
   and **Fill N values** stands where **Run** will be. It opens the first step

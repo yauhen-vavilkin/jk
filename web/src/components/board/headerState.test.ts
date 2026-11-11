@@ -7,7 +7,6 @@ import {
   firstUnfilled,
   headerMetaOf,
   headerStateOf,
-  removeWaitsFor,
   reviewJobsLabel,
   saveStateOf,
   stopChoices,
@@ -139,23 +138,6 @@ describe("trashAction", () => {
   it("is off while a step waits for a decision, even on a stopped flow", () => {
     const undecided = [step({ state: "SUCCESS" }), step({ position: 1, state: "needs_attention" })];
     expect(trashAction(flow({ status: "stopped", steps: undecided }))).toBe("disabled");
-    expect(removeWaitsFor(flow({ status: "stopped", steps: undecided }))).toBe(
-      "Resolve step 2 first",
-    );
-    expect(removeWaitsFor(flow({ status: "needs_attention", steps: undecided }))).toBe(
-      "Resolve step 2 first",
-    );
-  });
-
-  it("says which build a stopped flow's Remove waits for", () => {
-    const waits = (going: Partial<Step>) =>
-      removeWaitsFor(flow({ status: "stopped", steps: [step({ state: "SUCCESS" }), step(going)] }));
-    expect(waits({ position: 1, state: "running", build_number: 10061 })).toBe(
-      "Wait for #10061 to end",
-    );
-    expect(waits({ position: 1, state: "queued" })).toBe("Wait for step 2 to end");
-    expect(removeWaitsFor(flow({ status: "running", steps: [step({ state: "running" })] }))).toBeNull();
-    expect(removeWaitsFor(flow({ status: "stopped", steps: [step({ state: "SUCCESS" })] }))).toBeNull();
   });
 
   it("is off while the flow is going or a build is still in Jenkins", () => {

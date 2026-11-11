@@ -1,10 +1,13 @@
 // The one row that says what a flow is doing and what can be done about it: one
 // main button for what comes next (Run, Run again, Resolve, Review added steps),
-// Stop or Resume beside it, and everything else behind "More actions".
+// Stop or Resume beside it, Pin and Remove as quiet icons, and everything else
+// behind "More actions".
+import { BrushCleaning, Pin, PinOff, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { Drift, Flow, SavedFlow, Step } from "@/api/types";
+import IconButton from "@/components/ui/IconButton";
 import InlineConfirm from "@/components/ui/InlineConfirm";
 import StatusIcon from "@/components/ui/StatusIcon";
 import {
@@ -20,7 +23,6 @@ import {
   fillNextTitle,
   headerMetaOf,
   headerStateOf,
-  removeWaitsFor,
   reviewJobsLabel,
   saveStateOf,
   stopChoices,
@@ -29,7 +31,6 @@ import {
 } from "./headerState";
 import FlowMenu from "./FlowMenu";
 
-export const STOP_FIRST = "Stop the flow first";
 export const UNREACHABLE = "Jenkins is unreachable";
 // A draft never ran, so it is gone; a flow that ran leaves only the board.
 export const REMOVE_DRAFT = "Delete this draft. History does not keep it.";
@@ -307,22 +308,32 @@ export default function FlowHeader({
                 Resume from step {flow.failed_at_position + 1}
               </SecondaryButton>
             )}
+            <IconButton
+              quiet
+              icon={flow.pinned ? PinOff : Pin}
+              active={flow.pinned}
+              title={flow.pinned ? "Unpin" : "Pin"}
+              onClick={() => onPin(!flow.pinned)}
+            />
+            {/* Hidden while the flow cannot leave the board: it is going, or waits for a decision. */}
+            {trash !== "disabled" && (
+              <IconButton
+                quiet
+                icon={trash === "delete" ? Trash2 : BrushCleaning}
+                title={trash === "delete" ? REMOVE_DRAFT : REMOVE_RAN}
+                autoFocus={focusBack === "remove"}
+                // A draft and a flow that ended go at once; a stopped one asks, because
+                // it still has steps that never started.
+                onClick={() => (flow.status === "stopped" ? setDeleting(true) : onDelete())}
+              />
+            )}
             <FlowMenu
-              autoFocus={focusBack === "remove"}
               items={{
-                pinned: flow.pinned,
-                onPin,
                 save,
-                keptName: keptAs?.name,
                 onSave: onSaveAsFlow,
                 onDuplicate,
                 // A copy asks Jenkins for nothing, so it stays on when Jenkins is away.
                 onEditCopy: hasEnded(flow) ? onEdit : undefined,
-                removeWaits: trash === "disabled" ? (removeWaitsFor(flow) ?? STOP_FIRST) : undefined,
-                removeTitle: trash === "delete" ? REMOVE_DRAFT : REMOVE_RAN,
-                // A draft and a flow that ended go at once; a stopped one asks, because
-                // it still has steps that never started.
-                onRemove: () => (flow.status === "stopped" ? setDeleting(true) : onDelete()),
                 busy,
               }}
             />

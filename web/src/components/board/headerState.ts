@@ -231,14 +231,6 @@ export function trashAction(flow: Flow): "delete" | "clear" | "disabled" {
   return "disabled";
 }
 
-/** Why Remove is off, when it is something other than the flow still going. */
-export function removeWaitsFor(flow: Flow): string | null {
-  const undecided = undecidedStep(flow);
-  if (undecided) return `Resolve step ${undecided.position + 1} first`;
-  const going = flow.status === "stopped" ? inFlight(flow) : undefined;
-  return going ? `Wait for ${buildOrStep(going)} to end` : null;
-}
-
 interface StopChoices {
   /** Stops the flow; the build in Jenkins, if any, keeps running. */
   stop: string;

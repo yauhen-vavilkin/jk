@@ -5,14 +5,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import type { Drift, Flow, SavedFlow, Step } from "@/api/types";
-import { SAVE, SAVED, SAVING } from "@/components/ui/SaveButton";
-import FlowHeader, {
-  REMOVE_DRAFT,
-  REMOVE_RAN,
-  STOP_FIRST,
-  UNREACHABLE,
-} from "./FlowHeader";
-import { MORE } from "./FlowMenu";
+import { SAVE, SAVING } from "@/components/ui/SaveButton";
+import FlowHeader, { REMOVE_DRAFT, REMOVE_RAN, UNREACHABLE } from "./FlowHeader";
+import { MORE, SAVE_CHANGES } from "./FlowMenu";
 import { fillLabel, fillNextTitle } from "./headerState";
 
 const flow = (patch: Partial<Flow>): Flow =>
@@ -48,7 +43,7 @@ const step = (patch: Partial<Step>): Step =>
 const nothing = () => {};
 
 const openMenu = () => fireEvent.click(screen.getByRole("button", { name: MORE }));
-/** A menu item by the word it starts with; a disabled one also says why. */
+/** A menu item by the word it starts with. */
 const item = (word: string) =>
   screen.getByRole("menuitem", { name: new RegExp(`^${word.replace(/[…"]/g, ".")}`) });
 
@@ -151,41 +146,44 @@ describe("the flow header", () => {
     expect(screen.getByText("library")).toBeInTheDocument();
   });
 
-  it("removes a flow from the board from its menu, and says what that does", () => {
-    show({});
-    openMenu();
-    expect(item("Remove")).toHaveTextContent(REMOVE_DRAFT);
-
-    cleanup();
-    show({ status: "finished", result: "SUCCESS" });
-    openMenu();
-    expect(item("Remove")).toHaveTextContent(REMOVE_RAN);
-
-    cleanup();
+  it("removes a flow from the board with one icon, which says what that does", () => {
     let removed = 0;
-    show({ status: "running", current_position: 0 }, { onDelete: () => removed++ });
-    openMenu();
-    const going = item("Remove");
-    expect(going).toHaveAttribute("aria-disabled", "true");
-    expect(going).toHaveTextContent(STOP_FIRST);
-    fireEvent.click(going);
-    expect(removed).toBe(0);
+    show({}, { onDelete: () => removed++ });
+    fireEvent.click(screen.getByRole("button", { name: REMOVE_DRAFT }));
+    expect(removed).toBe(1);
+
+    cleanup();
+    show({ status: "finished", result: "SUCCESS" }, { onDelete: () => removed++ });
+    fireEvent.click(screen.getByRole("button", { name: REMOVE_RAN }));
+    expect(removed).toBe(2);
   });
 
-  it("says what a stopped flow's Remove waits for", () => {
+  it("has no Remove while the flow cannot leave the board", () => {
+    show({ status: "running", current_position: 0 });
+    expect(screen.getByRole("button", { name: "Pin" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: REMOVE_RAN })).toBeNull();
+
+    cleanup();
     show({ status: "stopped", steps: [step({ state: "running", build_number: 10061 })] });
-    openMenu();
-    expect(item("Remove")).toHaveTextContent("Wait for #10061 to end");
+    expect(screen.queryByRole("button", { name: REMOVE_RAN })).toBeNull();
 
     cleanup();
     show({
       status: "stopped",
       steps: [step({ state: "SUCCESS" }), step({ position: 1, state: "needs_attention" })],
     });
-    openMenu();
-    const remove = item("Remove");
-    expect(remove).toHaveAttribute("aria-disabled", "true");
-    expect(remove).toHaveTextContent("Resolve step 2 first");
+    expect(screen.queryByRole("button", { name: REMOVE_RAN })).toBeNull();
+  });
+
+  it("pins and unpins with one icon", () => {
+    const asked: boolean[] = [];
+    show({}, { onPin: (pinned) => asked.push(pinned) });
+    fireEvent.click(screen.getByRole("button", { name: "Pin" }));
+
+    cleanup();
+    show({ pinned: true }, { onPin: (pinned) => asked.push(pinned) });
+    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+    expect(asked).toEqual([true, false]);
   });
 
   it("offers Resolve beside Stop while a step needs attention", () => {
@@ -230,23 +228,21 @@ describe("the flow header", () => {
   it("keeps one main button, and the rest behind More actions", () => {
     show({});
     expect(screen.getByRole("button", { name: "Run" })).toHaveClass("bg-accent");
-    for (const word of ["Pin", "Save", "Duplicate", "Remove"]) {
+    for (const word of ["Save", "Duplicate", "Edit a copy"]) {
       expect(screen.queryByRole("button", { name: word })).toBeNull();
     }
     const more = screen.getByRole("button", { name: MORE });
     expect(more).toHaveAttribute("aria-haspopup", "menu");
     expect(more.className).not.toMatch(/\bborder\b/);
     openMenu();
-    expect(screen.getAllByRole("menuitem").map((entry) => entry.firstChild?.textContent)).toEqual([
-      "Pin",
+    expect(screen.getAllByRole("menuitem").map((entry) => entry.textContent)).toEqual([
       SAVE,
       "Duplicate",
-      "Remove",
     ]);
     // The first item takes the focus; the arrow keys go through the rest.
-    expect(item("Pin")).toHaveFocus();
-    fireEvent.keyDown(document, { key: "ArrowDown" });
     expect(item(SAVE)).toHaveFocus();
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    expect(item("Duplicate")).toHaveFocus();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     expect(more).toHaveFocus();
@@ -270,7 +266,7 @@ describe("the flow header", () => {
     expect(screen.getByRole("button", { name: "Run again" })).toBeEnabled();
   });
 
-  it("offers Save while there is something to save, and reads Saved when there is not", () => {
+  it("offers Save only while there is something to save", () => {
     const steps = [
       { id: "s1", position: 0, preset_id: "p1", condition: "unless_failure", run_values: {} },
     ] as unknown as Step[];
@@ -289,17 +285,15 @@ describe("the flow header", () => {
     let saved = 0;
     show({ saved_flow_id: "k", steps }, { keptAs: kept, onSaveAsFlow: () => saved++ });
     openMenu();
-    const same = item(SAVED);
-    expect(same).toHaveAttribute("aria-disabled", "true");
-    expect(same).toHaveTextContent('As "Nightly kept"');
-    fireEvent.click(same);
-    expect(saved).toBe(0);
+    expect(screen.getAllByRole("menuitem").map((entry) => entry.textContent)).toEqual([
+      "Duplicate",
+    ]);
 
     cleanup();
     const more = [...steps, { ...steps[0], id: "s2", position: 1 }] as Step[];
     show({ saved_flow_id: "k", steps: more }, { keptAs: kept, onSaveAsFlow: () => saved++ });
     openMenu();
-    fireEvent.click(item(SAVE));
+    fireEvent.click(item(SAVE_CHANGES));
     expect(saved).toBe(1);
   });
 
@@ -332,11 +326,12 @@ describe("the flow header", () => {
     expect(screen.getByRole("button", { name: "Nightly Cypress" })).toHaveFocus();
   });
 
-  it("gives the focus back to More actions when Remove's question is kept", () => {
-    show({ status: "stopped", steps: [step({ state: "SUCCESS" })] });
-    openMenu();
-    fireEvent.click(item("Remove"));
+  it("asks before removing a stopped flow, and gives the focus back to Remove when kept", () => {
+    let removed = 0;
+    show({ status: "stopped", steps: [step({ state: "SUCCESS" })] }, { onDelete: () => removed++ });
+    fireEvent.click(screen.getByRole("button", { name: REMOVE_RAN }));
     fireEvent.click(screen.getByRole("button", { name: "Keep" }));
-    expect(screen.getByRole("button", { name: MORE })).toHaveFocus();
+    expect(removed).toBe(0);
+    expect(screen.getByRole("button", { name: REMOVE_RAN })).toHaveFocus();
   });
 });
